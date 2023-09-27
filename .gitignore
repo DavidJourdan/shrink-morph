@@ -1,0 +1,4 @@
+build/
+*.ini
+*.ipynb_checkpoints
+*.path
