@@ -41,17 +41,17 @@ FetchContent_MakeAvailable(libigl TinyAD polyscope geometry-central)
 
 # Create executable
 file(GLOB SRCFILES 
-  main.cpp
-  functions.cpp
-  LocalGlobalSolver.cpp
-  newton.cpp
-  parameterization.cpp
-  path_extraction.cpp
-  stripe_patterns.cpp
-  stretch_angles.cpp
-  simulation_utils.cpp)
+  src/main.cpp
+  src/functions.cpp
+  src/LocalGlobalSolver.cpp
+  src/newton.cpp
+  src/parameterization.cpp
+  src/path_extraction.cpp
+  src/stripe_patterns.cpp
+  src/stretch_angles.cpp
+  src/simulation_utils.cpp)
   
-add_executable(${PROJECT_NAME} ${SRCFILES})
+add_executable(shrink_morph ${SRCFILES})
 
 ### Optional dependencies ###
 
@@ -80,21 +80,20 @@ find_package(MKL CONFIG)
 
 if(MKL_FOUND)
   set(EXTRA_LIBS ${EXTRA_LIBS} MKL::MKL)
-  target_compile_definitions(${PROJECT_NAME} PUBLIC EIGEN_USE_MKL_ALL)
-  target_compile_definitions(${PROJECT_NAME} PUBLIC USE_PARDISO)
-  target_compile_options(${PROJECT_NAME} PUBLIC $<TARGET_PROPERTY:MKL::MKL,INTERFACE_COMPILE_OPTIONS>)
-  target_include_directories(${PROJECT_NAME} PUBLIC $<TARGET_PROPERTY:MKL::MKL,INTERFACE_INCLUDE_DIRECTORIES>)
+  target_compile_definitions(shrink_morph PUBLIC EIGEN_USE_MKL_ALL)
+  target_compile_definitions(shrink_morph PUBLIC USE_PARDISO)
+  target_compile_options(shrink_morph PUBLIC $<TARGET_PROPERTY:MKL::MKL,INTERFACE_COMPILE_OPTIONS>)
+  target_include_directories(shrink_morph PUBLIC $<TARGET_PROPERTY:MKL::MKL,INTERFACE_INCLUDE_DIRECTORIES>)
 endif(MKL_FOUND)
 
-
-# Paths
-target_compile_definitions(${PROJECT_NAME} PUBLIC DATA_PATH_STR="${CMAKE_CURRENT_SOURCE_DIR}/data/")
-target_compile_options(${PROJECT_NAME} PRIVATE $<$<CONFIG:RELEASE>:
+# Compiler options
+target_compile_definitions(shrink_morph PUBLIC DATA_PATH_STR="${CMAKE_CURRENT_SOURCE_DIR}/data/")
+target_compile_options(shrink_morph PRIVATE $<$<CONFIG:RELEASE>:
   $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>,$<CXX_COMPILER_ID:GNU>>:-Ofast>
   $<$<CXX_COMPILER_ID:MSVC>:/Ox>>)
 
 # reomove annoying Polyscope-related compiler warning
-target_compile_options(${PROJECT_NAME} PRIVATE 
+target_compile_options(shrink_morph PRIVATE 
   $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>,$<CXX_COMPILER_ID:GNU>>:-Wno-nonnull>)
   
-target_link_libraries(${PROJECT_NAME} Eigen3::Eigen geometry-central polyscope TinyAD igl::core ${EXTRA_LIBS})
+target_link_libraries(shrink_morph Eigen3::Eigen geometry-central polyscope TinyAD igl::core ${EXTRA_LIBS})
