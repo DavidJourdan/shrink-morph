@@ -39,20 +39,6 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(libigl TinyAD polyscope geometry-central)
 
-# Create executable
-file(GLOB SRCFILES 
-  src/main.cpp
-  src/functions.cpp
-  src/LocalGlobalSolver.cpp
-  src/newton.cpp
-  src/parameterization.cpp
-  src/path_extraction.cpp
-  src/stripe_patterns.cpp
-  src/stretch_angles.cpp
-  src/simulation_utils.cpp)
-  
-add_executable(shrink_morph ${SRCFILES})
-
 ### Optional dependencies ###
 
 # OR-Tools
@@ -80,20 +66,44 @@ find_package(MKL CONFIG)
 
 if(MKL_FOUND)
   set(EXTRA_LIBS ${EXTRA_LIBS} MKL::MKL)
-  target_compile_definitions(shrink_morph PUBLIC EIGEN_USE_MKL_ALL)
-  target_compile_definitions(shrink_morph PUBLIC USE_PARDISO)
-  target_compile_options(shrink_morph PUBLIC $<TARGET_PROPERTY:MKL::MKL,INTERFACE_COMPILE_OPTIONS>)
-  target_include_directories(shrink_morph PUBLIC $<TARGET_PROPERTY:MKL::MKL,INTERFACE_INCLUDE_DIRECTORIES>)
 endif(MKL_FOUND)
 
-# Compiler options
-target_compile_definitions(shrink_morph PUBLIC DATA_PATH_STR="${CMAKE_CURRENT_SOURCE_DIR}/data/")
-target_compile_options(shrink_morph PRIVATE $<$<CONFIG:RELEASE>:
-  $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>,$<CXX_COMPILER_ID:GNU>>:-Ofast>
-  $<$<CXX_COMPILER_ID:MSVC>:/Ox>>)
-
-# reomove annoying Polyscope-related compiler warning
-target_compile_options(shrink_morph PRIVATE 
-  $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>,$<CXX_COMPILER_ID:GNU>>:-Wno-nonnull>)
+# cpp files minus the mains
+file(GLOB SRCFILES 
+  src/functions.cpp
+  src/LocalGlobalSolver.cpp
+  src/newton.cpp
+  src/parameterization.cpp
+  src/path_extraction.cpp
+  src/stripe_patterns.cpp
+  src/stretch_angles.cpp
+  src/simulation_utils.cpp)
   
-target_link_libraries(shrink_morph Eigen3::Eigen geometry-central polyscope TinyAD igl::core ${EXTRA_LIBS})
+# Create executables
+add_executable(shrink_morph  src/main.cpp ${SRCFILES})
+# add_executable(shrink_morph_cli  src/cli.cpp ${SRCFILES})
+set(EXECUTABLES 
+  shrink_morph 
+  # shrink_morph_cli
+)
+  
+foreach(exec ${EXECUTABLES})
+  target_link_libraries(${exec} Eigen3::Eigen geometry-central polyscope TinyAD igl::core ${EXTRA_LIBS})
+    
+  # Compiler definitions and options
+  if(MKL_FOUND)
+    target_compile_definitions(${exec} PUBLIC EIGEN_USE_MKL_ALL)
+    target_compile_definitions(${exec} PUBLIC USE_PARDISO)
+    target_compile_options(${exec} PUBLIC $<TARGET_PROPERTY:MKL::MKL,INTERFACE_COMPILE_OPTIONS>)
+    target_include_directories(${exec} PUBLIC $<TARGET_PROPERTY:MKL::MKL,INTERFACE_INCLUDE_DIRECTORIES>)
+  endif(MKL_FOUND)
+
+  target_compile_definitions(${exec} PUBLIC DATA_PATH_STR="${CMAKE_CURRENT_SOURCE_DIR}/data/")
+  target_compile_options(${exec} PRIVATE $<$<CONFIG:RELEASE>:
+    $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>,$<CXX_COMPILER_ID:GNU>>:-Ofast>
+    $<$<CXX_COMPILER_ID:MSVC>:/Ox>>)
+
+  # reomove annoying Polyscope-related compiler warning
+  target_compile_options(${exec} PRIVATE 
+    $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>,$<CXX_COMPILER_ID:GNU>>:-Wno-nonnull>)
+endforeach(exec ${EXECUTABLES})
