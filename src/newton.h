@@ -42,4 +42,4 @@ void sparse_gauss_newton(geometrycentral::surface::IntrinsicGeometryInterface& g
                          double wM,
                          double wL,
                          double E1,
-                         const std::function<void(const Eigen::VectorXd&)>& callback);
+                         const std::function<void(const Eigen::VectorXd&)>& callback = [](const auto&) {});

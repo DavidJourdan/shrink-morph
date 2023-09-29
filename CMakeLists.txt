@@ -81,10 +81,10 @@ file(GLOB SRCFILES
   
 # Create executables
 add_executable(shrink_morph  src/main.cpp ${SRCFILES})
-# add_executable(shrink_morph_cli  src/cli.cpp ${SRCFILES})
+add_executable(shrink_morph_cli  src/cli.cpp ${SRCFILES})
 set(EXECUTABLES 
   shrink_morph 
-  # shrink_morph_cli
+  shrink_morph_cli
 )
   
 foreach(exec ${EXECUTABLES})
