@@ -25,13 +25,13 @@ jobs:
       - uses: actions/checkout@v3
 
       - name: Dependencies
-        run: sudo apt install build-essential libeigen3-dev coreutils xorg-dev libglu1-mesa-dev xpra xserver-xorg-video-dummy freeglut3-dev
+        run: sudo apt install build-essential coreutils xorg-dev libglu1-mesa-dev xpra xserver-xorg-video-dummy freeglut3-dev
 
       - name: Configure
         run:  cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=/usr/bin/${{ matrix.c_compiler }} -DCMAKE_CXX_COMPILER=/usr/bin/${{ matrix.cpp_compiler }}
 
       - name: Build
-        run: cmake --build build --config Release -j $(nproc)
+        run: cmake --build build -j $(nproc)
   
   macOS:
     name: macOS Release
@@ -40,35 +40,27 @@ jobs:
       - uses: actions/checkout@v3
 
       - name: Dependencies
-        run: brew install eigen coreutils
+        run: brew install coreutils
 
       - name: Configure
         run:  cmake -B build -DCMAKE_BUILD_TYPE=Release
 
       - name: Build
-        run: cmake --build build --config Release -j $(nproc)
+        run: cmake --build build -j $(nproc)
   windows:
     name: Windows Release
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v3
-      - name: Set reusable strings
-        # Turn repeated input strings (such as the build output directory) into step outputs. These step outputs can be used throughout the workflow file.
-        id: strings
-        shell: bash
-        run: |
-          echo "build-output-dir=${{ github.workspace }}/build" >> "$GITHUB_OUTPUT"
-  
+      - uses: actions/checkout@v3  
       - name: Configure CMake
         # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
         # See https://cmake.org/cmake/help/latest/variable/CMAKE_BUILD_TYPE.html?highlight=cmake_build_type
         run: >
-          cmake -B ${{ steps.strings.outputs.build-output-dir }}
+          cmake -B build
           -DCMAKE_CXX_COMPILER=cl
           -DCMAKE_C_COMPILER=cl
-          -DCMAKE_BUILD_TYPE=Release
-          -S ${{ github.workspace }}
+          -DCMAKE_CONFIGURATION_TYPES="Release"
   
       - name: Build
         # Build your program with the given configuration. Note that --config is needed because the default Windows generator is a multi-config generator (Visual Studio generator).
-        run: cmake --build ${{ steps.strings.outputs.build-output-dir }} --config ${{ matrix.build_type }}
+        run: cmake --build build --config Release
