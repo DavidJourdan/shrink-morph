@@ -1,4 +1,5 @@
 # Shrink & Morph: 3D-printed self-shaping shells actuated by a shape memory effect
+[![](https://github.com/DavidJourdan/shrink-morph/workflows/Build/badge.svg)](https://github.com/DavidJourdan/shrink-morph/actions)
 David Jourdan, Pierre-Alexandre Hugron, Camille Schreck, Jonàs Martínez, and Sylvain Lefebvre
 ![Teaser image](data/teaser.png)
 
@@ -6,14 +7,14 @@ This repository contains the implementation associated with the paper "Shrink & 
 
 ## Installation instructions
 
-Installation can be done using standard CMake routines. On a typical Linux machine, the following should work:
+Installation can be done using standard CMake routines. On a typical Linux/macOS machine, the following should work:
 ```
 git clone https://github.com/DavidJourdan/shrink-morph
 cd shrink-morph
 cmake -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build -j $(nproc)
 ```
-CMake will download the required dependencies and compile the executable
+CMake will download the required dependencies and compile the executable (note that on a fresh Debian/Ubuntu install you will need to install graphics packages: ```sudo apt install xorg-dev libglu1-mesa-dev freeglut3-dev mesa-common-dev```).
 
 ## Optional dependencies 
 
