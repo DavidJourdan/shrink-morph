@@ -61,7 +61,11 @@ endif(OpenMP_CXX_FOUND)
 # MKL PARDISO 
 set(MKL_LINK dynamic)
 set(MKL_INTERFACE_FULL intel_lp64)
-set(MKL_THREADING gnu_thread)
+if("${CMAKE_CXX_COMPILER_ID}" MATCHES "MSVC")
+	set(MKL_THREADING intel_thread)
+else()
+	set(MKL_THREADING gnu_thread)
+endif()	
 find_package(MKL CONFIG)
 
 if(MKL_FOUND)
