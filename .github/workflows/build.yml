@@ -28,10 +28,10 @@ jobs:
         run: sudo apt install build-essential coreutils xorg-dev libglu1-mesa-dev xpra xserver-xorg-video-dummy freeglut3-dev
 
       - name: Configure
-        run:  cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=/usr/bin/${{ matrix.c_compiler }} -DCMAKE_CXX_COMPILER=/usr/bin/${{ matrix.cpp_compiler }}
+        run:  cmake -B ${{ github.workspace }}/build -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=/usr/bin/${{ matrix.c_compiler }} -DCMAKE_CXX_COMPILER=/usr/bin/${{ matrix.cpp_compiler }}
 
       - name: Build
-        run: cmake --build build -j $(nproc)
+        run: cmake --build ${{ github.workspace }}/build -j $(nproc)
   
       - name: Test
         run: ${{ github.workspace }}/build/Release/shrink_morph_cli
@@ -45,10 +45,10 @@ jobs:
         run: brew install coreutils
 
       - name: Configure
-        run:  cmake -B build -DCMAKE_BUILD_TYPE=Release
+        run:  cmake -B ${{ github.workspace }}/build -DCMAKE_BUILD_TYPE=Release
 
       - name: Build
-        run: cmake --build build -j $(nproc)
+        run: cmake --build ${{ github.workspace }}/build -j $(nproc)
 
       - name: Test
         run: ${{ github.workspace }}/build/Release/shrink_morph_cli
@@ -62,14 +62,14 @@ jobs:
         # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
         # See https://cmake.org/cmake/help/latest/variable/CMAKE_BUILD_TYPE.html?highlight=cmake_build_type
         run: >
-          cmake -B build
+          cmake -B ${{ github.workspace }}/build
           -DCMAKE_CXX_COMPILER=cl
           -DCMAKE_C_COMPILER=cl
           -DCMAKE_CONFIGURATION_TYPES="Release"
   
       - name: Build
         # Build your program with the given configuration. Note that --config is needed because the default Windows generator is a multi-config generator (Visual Studio generator).
-        run: cmake --build build --config Release
+        run: cmake --build ${{ github.workspace }}/build --config Release
 
       - name: Test
         run: ${{ github.workspace }}\build\Release\shrink_morph_cli.exe
