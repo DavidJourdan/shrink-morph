@@ -34,7 +34,7 @@ jobs:
         run: cmake --build ${{ github.workspace }}/build -j $(nproc)
   
       - name: Test
-        run: ${{ github.workspace }}/build/Release/shrink_morph_cli
+        run: ${{ github.workspace }}/build/shrink_morph_cli
   macOS:
     name: macOS Release
     runs-on: macos-latest
@@ -51,7 +51,7 @@ jobs:
         run: cmake --build ${{ github.workspace }}/build -j $(nproc)
 
       - name: Test
-        run: ${{ github.workspace }}/build/Release/shrink_morph_cli
+        run: ${{ github.workspace }}/build/shrink_morph_cli
   windows:
     name: Windows Release
     runs-on: windows-latest
