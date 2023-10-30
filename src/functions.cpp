@@ -205,33 +205,35 @@ TinyAD::ScalarFunction<1, double, Eigen::Index> adjointFunction(IntrinsicGeometr
     Eigen::Matrix3<T> L = Eigen::Matrix3<T>::Zero();
     Face f = mesh.face(f_idx);
     for(Halfedge he: f.adjacentHalfedges())
-      if(!he.edge().isBoundary())
-      {
-        // rotate edge e around n
-        Eigen::Vector3<T> e;
-        e << element.variables(3 * geometry.vertexIndices[he.next().vertex()]) -
-                 element.variables(3 * geometry.vertexIndices[he.vertex()]),
-            element.variables(3 * geometry.vertexIndices[he.next().vertex()] + 1) -
-                element.variables(3 * geometry.vertexIndices[he.vertex()] + 1),
-            element.variables(3 * geometry.vertexIndices[he.next().vertex()] + 2) -
-                element.variables(3 * geometry.vertexIndices[he.vertex()] + 2);
+    {
+      if(he.edge().isBoundary())
+        continue;
+      
+      // rotate edge e around n
+      Eigen::Vector3<T> e;
+      e << element.variables(3 * geometry.vertexIndices[he.next().vertex()]) -
+               element.variables(3 * geometry.vertexIndices[he.vertex()]),
+          element.variables(3 * geometry.vertexIndices[he.next().vertex()] + 1) -
+              element.variables(3 * geometry.vertexIndices[he.vertex()] + 1),
+          element.variables(3 * geometry.vertexIndices[he.next().vertex()] + 2) -
+              element.variables(3 * geometry.vertexIndices[he.vertex()] + 2);
 
-        // compute dihedral angle
-        Eigen::Vector3<T> nf;
-        nf << element.variables(3 * geometry.vertexIndices[he.twin().next().next().vertex()]) -
-                  element.variables(3 * geometry.vertexIndices[he.vertex()]),
-            element.variables(3 * geometry.vertexIndices[he.twin().next().next().vertex()] + 1) -
-                element.variables(3 * geometry.vertexIndices[he.vertex()] + 1),
-            element.variables(3 * geometry.vertexIndices[he.twin().next().next().vertex()] + 2) -
-                element.variables(3 * geometry.vertexIndices[he.vertex()] + 2);
-        nf = nf.cross(e);
-        T theta = atan2(n.cross(nf).dot(e), e.norm() * nf.dot(n));
+      // compute dihedral angle
+      Eigen::Vector3<T> nf;
+      nf << element.variables(3 * geometry.vertexIndices[he.twin().next().next().vertex()]) -
+                element.variables(3 * geometry.vertexIndices[he.vertex()]),
+          element.variables(3 * geometry.vertexIndices[he.twin().next().next().vertex()] + 1) -
+              element.variables(3 * geometry.vertexIndices[he.vertex()] + 1),
+          element.variables(3 * geometry.vertexIndices[he.twin().next().next().vertex()] + 2) -
+              element.variables(3 * geometry.vertexIndices[he.vertex()] + 2);
+      nf = nf.cross(e);
+      T theta = atan2(n.cross(nf).dot(e), e.norm() * nf.dot(n));
 
-        Eigen::Vector3<T> t = n.cross(e);
+      Eigen::Vector3<T> t = n.cross(e);
 
-        // add edge contribution
-        L += theta * t.normalized() * t.transpose();
-      }
+      // add edge contribution
+      L += theta * t.normalized() * t.transpose();
+    }
     L /= n.squaredNorm();
 
     Eigen::Matrix2d S;

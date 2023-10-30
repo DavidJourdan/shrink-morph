@@ -14,6 +14,7 @@
 
 #include <geometrycentral/surface/manifold_surface_mesh.h>
 #include <geometrycentral/surface/vertex_position_geometry.h>
+#include <igl/file_dialog_open.h>
 #include <igl/loop.h>
 #include <igl/readOBJ.h>
 #include <polyscope/curve_network.h>
@@ -42,14 +43,14 @@ int main(int argc, char* argv[])
   // Load a mesh in OBJ format
   std::string filename;
   if(argc < 2)
-    filename = "beetle";
+    filename = igl::file_dialog_open();
   else
-    filename = argv[1];
+    filename = std::string(DATA_PATH_STR) + std::string(argv[1]) + ".obj";
   Eigen::MatrixXd V;
   Eigen::MatrixXi F;
-  if(!igl::readOBJ(std::string(DATA_PATH_STR) + filename + ".obj", V, F))
+  if(!igl::readOBJ(filename, V, F))
   {
-    std::cout << "File " << DATA_PATH_STR << filename << ".obj not found\n";
+    std::cout << "File " << filename << " not found\n";
     return 0;
   }
   // resize mesh to a 100mm width

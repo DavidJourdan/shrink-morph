@@ -329,10 +329,9 @@ void stripePattern(VertexPositionGeometry& geometry,
   std::vector<std::vector<std::vector<Vector3>>> paths =
       generatePaths(geometryUV, th1, th2, layerHeight, nLayers, spacing, timeLimit);
 
-  std::ofstream s(std::string(DATA_PATH_STR) + filename + ".path");
   for(int i = 0; i < nLayers; ++i)
   {
-    writePaths(std::string(DATA_PATH_STR) + filename + ".path", paths[i], (i + 1) * layerHeight);
+    writePaths(filename + ".path", paths[i], (i + 1) * layerHeight);
     drawPathsAndTravels(paths[i], spacing, i + 1);
   }
 }

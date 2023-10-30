@@ -31,7 +31,7 @@ void newton(Eigen::VectorXd& x,
   Timer timer("Newton", !verbose);
 
   if(verbose)
-    std::cout << "Initial energy: " << func.eval(x) << "\n";
+    std::cout << "Initial energy: " << func.eval(x) << std::endl;
 
   Eigen::SparseMatrix<double> P = projectionMatrix(fixedIdx, x.size());
 
@@ -221,7 +221,7 @@ void sparse_gauss_newton(IntrinsicGeometryInterface& geometry,
     return -2 * H.block(V.size(), 0, th.size(), V.size()) * dir + 2 * wM * M_theta * th + 2 * wL * L * th;
   };
 
-  std::cout << "Initial energy: " << distance(theta) << "\n";
+  std::cout << "Initial energy: " << distance(theta) << std::endl;
 
   LUSolver solver;
 
@@ -264,7 +264,8 @@ void sparse_gauss_newton(IntrinsicGeometryInterface& geometry,
     theta += s * deltaTheta;
 
     std::cout << "Decrement in iteration " << i << ": " << TinyAD::newton_decrement(deltaTheta, g)
-              << "\tDistance: " << (x - xTarget).dot(masses.cwiseProduct(x - xTarget)) << "\tStep size: " << s << "\n";
+              << "\tDistance: " << (x - xTarget).dot(masses.cwiseProduct(x - xTarget)) << "\tStep size: " << s
+              << std::endl;
     if(TinyAD::newton_decrement(deltaTheta, g) < lim || solver.info() != Eigen::Success)
       break;
 
