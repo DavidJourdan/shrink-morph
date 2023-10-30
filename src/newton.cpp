@@ -129,6 +129,10 @@ void sparse_gauss_newton(IntrinsicGeometryInterface& geometry,
                          double wM,
                          double wL,
                          double E1,
+                         double lambda1,
+                         double lambda2,
+                         double deltaLambda,
+                         double thickness,
                          const std::function<void(const Eigen::VectorXd&)>& callback)
 {
   geometry.requireCotanLaplacian();
@@ -170,7 +174,7 @@ void sparse_gauss_newton(IntrinsicGeometryInterface& geometry,
 
   auto distance = [&](const Eigen::VectorXd& th) {
     theta2.fromVector(th);
-    auto simFunc = simulationFunction(geometry, MrInv, theta1, theta2, E1);
+    auto simFunc = simulationFunction(geometry, MrInv, theta1, theta2, E1, lambda1, lambda2, deltaLambda, thickness);
     newton(x, simFunc, adjointSolver, 1000, lim, false, fixedIdx);
 
     return (x - xTarget).dot(masses.cwiseProduct(x - xTarget)) + wM * th.dot(M_theta * th) + wL * th.dot(L * th);

@@ -12,6 +12,10 @@ TinyAD::ScalarFunction<3, double, Vertex> simulationFunction(IntrinsicGeometryIn
                                                              FaceData<double>& theta1,
                                                              VertexData<double>& theta2,
                                                              double E1,
+                                                             double lambda1,
+                                                             double lambda2,
+                                                             double deltaLambda,
+                                                             double thickness,
                                                              double E2)
 {
   SurfaceMesh& mesh = geometry.mesh;
@@ -20,7 +24,7 @@ TinyAD::ScalarFunction<3, double, Vertex> simulationFunction(IntrinsicGeometryIn
   TinyAD::ScalarFunction<3, double, Vertex> func = TinyAD::scalar_function<3>(mesh.vertices());
 
   // 1st fundamental form
-  func.add_elements<3>(mesh.faces(), [&, E1, E2](auto& element) -> TINYAD_SCALAR_TYPE(element) {
+  func.add_elements<3>(mesh.faces(), [&, E1, E2, lambda1, lambda2](auto& element) -> TINYAD_SCALAR_TYPE(element) {
     // Evaluate element using either double or TinyAD::Double
     using T = TINYAD_SCALAR_TYPE(element);
 
@@ -52,7 +56,7 @@ TinyAD::ScalarFunction<3, double, Vertex> simulationFunction(IntrinsicGeometryIn
   });
 
   // 2nd fundamental form
-  func.add_elements<6>(mesh.faces(), [&, E1, E2](auto& element) -> TINYAD_SCALAR_TYPE(element) {
+  func.add_elements<6>(mesh.faces(), [&, E1, E2, lambda1, lambda2, deltaLambda](auto& element) -> TINYAD_SCALAR_TYPE(element) {
     // Evaluate element using either double or TinyAD::Double
     using T = TINYAD_SCALAR_TYPE(element);
 
@@ -124,6 +128,10 @@ TinyAD::ScalarFunction<1, double, Eigen::Index> adjointFunction(IntrinsicGeometr
                                                                 const FaceData<Eigen::Matrix2d>& MrInv,
                                                                 const FaceData<double>& theta1,
                                                                 double E1,
+                                                                double lambda1,
+                                                                double lambda2,
+                                                                double deltaLambda,
+                                                                double thickness,
                                                                 double E2)
 {
   SurfaceMesh& mesh = geometry.mesh;
@@ -133,7 +141,8 @@ TinyAD::ScalarFunction<1, double, Eigen::Index> adjointFunction(IntrinsicGeometr
       TinyAD::scalar_function<1>(TinyAD::range(3 * mesh.nVertices() + mesh.nVertices()));
 
   // 1st fundamental form
-  func.add_elements<9>(TinyAD::range(F.rows()), [&, E1, E2](auto& element) -> TINYAD_SCALAR_TYPE(element) {
+  func.add_elements<9>(
+      TinyAD::range(F.rows()), [&, E1, E2, lambda1, lambda2](auto& element) -> TINYAD_SCALAR_TYPE(element) {
     // Evaluate element using either double or TinyAD::Double
     using T = TINYAD_SCALAR_TYPE(element);
     Eigen::Index f_idx = element.handle;
@@ -168,7 +177,8 @@ TinyAD::ScalarFunction<1, double, Eigen::Index> adjointFunction(IntrinsicGeometr
 
   // 2nd fundamental form
   geometry.requireVertexIndices();
-  func.add_elements<3 * 6 + 3>(TinyAD::range(F.rows()), [&, E1, E2](auto& element) -> TINYAD_SCALAR_TYPE(element) {
+  func.add_elements<
+      3 * 6 + 3>(TinyAD::range(F.rows()), [&, E1, E2, lambda1, lambda2, deltaLambda](auto& element) -> TINYAD_SCALAR_TYPE(element) {
     // Evaluate element using either double or TinyAD::Double
     using T = TINYAD_SCALAR_TYPE(element);
     Eigen::Index f_idx = element.handle;
@@ -249,6 +259,6 @@ TinyAD::ScalarFunction<1, double, Eigen::Index> adjointFunction(IntrinsicGeometr
     // clang-format on
     return std::pow(thickness, 2) * EVoigt.dot(C * EVoigt) * dA / 3;
   });
-
+   
   return func;
 }

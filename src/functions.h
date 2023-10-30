@@ -10,6 +10,10 @@ simulationFunction(geometrycentral::surface::IntrinsicGeometryInterface& geometr
                    geometrycentral::surface::FaceData<double>& theta1,
                    geometrycentral::surface::VertexData<double>& theta2,
                    double E1,
+                   double lambda1,
+                   double lambda2,
+                   double deltaLambda,
+                   double thickness,
                    double E2 = 1);
 
 TinyAD::ScalarFunction<1, double, Eigen::Index>
@@ -18,4 +22,8 @@ adjointFunction(geometrycentral::surface::IntrinsicGeometryInterface& geometry,
                 const geometrycentral::surface::FaceData<Eigen::Matrix2d>& MrInv,
                 const geometrycentral::surface::FaceData<double>& theta1,
                 double E1,
+                double lambda1,
+                double lambda2,
+                double deltaLambda,
+                double thickness,
                 double E2 = 1);

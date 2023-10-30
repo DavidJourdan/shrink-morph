@@ -40,6 +40,12 @@ int main(int argc, char* argv[])
   float imguiStackMargin = 10;
   float rightWindowsWidth = 370;
 
+  // Material data
+  double lambda1 = 0.58;
+  double lambda2 = 1.08;
+  double thickness = 1.218;
+  double deltaLambda = 0.0226764665509417;
+
   // Load a mesh in OBJ format
   std::string filename;
   if(argc < 2)
@@ -95,6 +101,7 @@ int main(int argc, char* argv[])
     static double lim = 1e-6;
     static int n_iter = 1000;
     static double rotAngle = 0;
+    static double curvature;
 
     ImGui::PushID("user_callback");
     ImGui::SetNextWindowPos(
@@ -137,6 +144,13 @@ int main(int argc, char* argv[])
 
     if(ImGui::TreeNode("Advanced"))
     {
+      ImGui::InputDouble("lambda1", &lambda1, 0, 0, "%.1e");
+      ImGui::InputDouble("lambda2", &lambda2, 0, 0, "%.1e");
+      ImGui::InputDouble("Thickness", &thickness, 0, 0, "%.1e");
+      if (ImGui::InputDouble("Curvature", &curvature, 0, 0, "%.1e"))
+      {
+        deltaLambda = thickness * lambda1 * curvature;
+      }
       ImGui::InputInt("Iterations", &n_iter);
       ImGui::InputDouble("Limit", &lim, 0, 0, "%.1e");
       if(ImGui::Button("Rotate"))
@@ -271,7 +285,7 @@ int main(int argc, char* argv[])
         optimTimer.start();
         optimRun = true;
         // Define simulation function
-        auto func = simulationFunction(geometry, MrInv, theta1, theta2, E1);
+        auto func = simulationFunction(geometry, MrInv, theta1, theta2, E1, lambda1, lambda2, deltaLambda, thickness);
 
         // (Projected) Newton optimization
         newton(geometry, V, func, n_iter, lim, true, fixedIdx, [&](const Eigen::VectorXd& X) {
@@ -319,11 +333,12 @@ int main(int argc, char* argv[])
         optimRun = true;
 
         // Define optimization function
-        auto adjointFunc = adjointFunction(geometry, F, MrInv, theta1, E1);
+        auto adjointFunc = adjointFunction(geometry, F, MrInv, theta1, E1, lambda1, lambda2, deltaLambda, thickness);
 
         // Optimize this energy function using SGN [Zehnder et al. 2021]
-        sparse_gauss_newton(geometry, V, xTarget, MrInv, theta1, theta2, adjointFunc, fixedIdx, n_iter, lim, wM, wL, E1,
-                            [&](const Eigen::VectorXd& X) {
+        sparse_gauss_newton(
+            geometry, V, xTarget, MrInv, theta1, theta2, adjointFunc, fixedIdx, n_iter, lim, wM, wL, E1, lambda1,
+            lambda2, deltaLambda, thickness, [&](const Eigen::VectorXd& X) {
                               // convert X to V for visualizing individual iterations
                               for(int i = 0; i < V.rows(); ++i)
                                 for(int j = 0; j < 3; ++j)

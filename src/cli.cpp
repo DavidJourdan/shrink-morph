@@ -34,6 +34,12 @@ int main(int argc, char* argv[])
   double E1 = 10;
   int nFmin = 1000;
 
+  // Material data
+  double lambda1 = 0.58;
+  double lambda2 = 1.08;
+  double thickness = 1.218;
+  double deltaLambda = 0.0226764665509417;
+
   if(argc >= 2)
     filename = argv[1];
   if(argc >= 3)
@@ -138,9 +144,10 @@ int main(int argc, char* argv[])
 
   optimTimer.start();
   // Define optimization function
-  auto adjointFunc = adjointFunction(geometry, F, MrInv, theta1, E1);
+  auto adjointFunc = adjointFunction(geometry, F, MrInv, theta1, E1, lambda1, lambda2, deltaLambda, thickness);
   // Optimize this energy function using SGN [Zehnder et al. 2021]
-  sparse_gauss_newton(geometry, V, xTarget, MrInv, theta1, theta2, adjointFunc, fixedIdx, n_iter, lim, wM, wL, E1);
+  sparse_gauss_newton(geometry, V, xTarget, MrInv, theta1, theta2, adjointFunc, fixedIdx, n_iter, lim, wM, wL, E1,
+                      lambda1, lambda2, deltaLambda, thickness);
   optimTimer.stop();
 
   // Display distance with target mesh
