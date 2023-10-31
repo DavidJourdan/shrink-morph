@@ -101,7 +101,7 @@ int main(int argc, char* argv[])
     static double lim = 1e-6;
     static int n_iter = 1000;
     static double rotAngle = 0;
-    static double curvature;
+    static double curvature = deltaLambda / thickness / lambda1;
 
     ImGui::PushID("user_callback");
     ImGui::SetNextWindowPos(

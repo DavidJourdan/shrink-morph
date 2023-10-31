@@ -121,7 +121,7 @@ int main(int argc, char* argv[])
 
   Timer optimTimer("Directions optimization");
   // Define simulation function
-  auto func = simulationFunction(geometry, MrInv, theta1, theta2, E1);
+  auto func = simulationFunction(geometry, MrInv, theta1, theta2, E1, lambda1, lambda2, deltaLambda, thickness);
 
   // (Projected) Newton optimization
   newton(geometry, V, func, n_iter, lim, true, fixedIdx);
