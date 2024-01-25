@@ -14,7 +14,7 @@ cd shrink-morph
 cmake -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build -j $(nproc)
 ```
-CMake will download the required dependencies and compile the executable (note that on a fresh Debian/Ubuntu install you will need to install graphics packages: ```sudo apt install xorg-dev libglu1-mesa-dev freeglut3-dev mesa-common-dev```).
+Provided that you have the necessary graphics packages installed (if not the case, see [here](Dependencies.md)) CMake will download the required dependencies and compile the executable.
 
 ## Optional dependencies 
 
@@ -26,4 +26,8 @@ These libraries can downloaded for better performance:
 From the command line, specify which mesh file (stored in ```/data/```) should be opened. For example with ```beetle.obj```  simply run
 ```
 build/shrink-morph beetle
+```
+To use the togcode script:
+```
+python togcode.py ../data/input_file.path Creality_K1_Max -o output_file.gcode
 ```
