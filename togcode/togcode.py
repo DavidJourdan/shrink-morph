@@ -138,8 +138,7 @@ def travel(point_start: np.ndarray, point_end: np.ndarray, printer_param: Printe
 
 
 def travel_to(point_end: np.ndarray, 
-              printer_param: PrinterParameters, 
-              prime: bool = True) -> str:
+              printer_param: PrinterParameters) -> str:
 
     # Retract
     travel_str = ";retract\n"
@@ -147,12 +146,13 @@ def travel_to(point_end: np.ndarray,
     travel_str += f"G1 F{printer_param.get_retract_feedrate()} E{printer_param.total_extrusion_length:.5f}\n"
     # Travel
     travel_str += ";travel\n"
-    travel_str += f"G0 F{printer_param.get_print_feedrate()} X{point_end[0]:.3f} Y{point_end[1]:.3f} Z{point_end[2]:.2f}\n"
-    if prime:
-        # Prime
-        travel_str += ";prime\n"
-        printer_param.total_extrusion_length += printer_param.filament_priming
-        travel_str += f"G1 F{printer_param.get_retract_feedrate()} E{printer_param.total_extrusion_length:.5f}\n"
+    travel_str += f"G0 F{printer_param.get_travel_feedrate()} X{point_end[0]:.3f} Y{point_end[1]:.3f} Z{point_end[2] + printer_param.z_lift:.2f}\n"
+    travel_str += f"G0 F{printer_param.get_z_lift_feedrate()} X{point_end[0]:.3f} Y{point_end[1]:.3f} Z{point_end[2]:.2f}\n"
+
+    # Prime
+    travel_str += ";prime\n"
+    printer_param.total_extrusion_length += printer_param.filament_priming
+    travel_str += f"G1 F{printer_param.get_retract_feedrate()} E{printer_param.total_extrusion_length:.5f}\n"
     return travel_str
 
 def read_trajectories(filename):
@@ -386,6 +386,13 @@ M205 S0 T0 ; sets the minimum extruding and travel feed rate, mm/sec
                 f.write(travel_to(trajectory[0,:], printer_param))
             else:
                 f.write(travel(prev_point, trajectory[0,:], printer_param))
+                # detect layer height
+                if np.abs(trajectory[0,2] - prev_point[2]) > 1e-5:
+                    if trajectory[0,2] - prev_point[2] > 0:
+                        printer_param.layer_height = trajectory[0,2] - prev_point[2]
+                    else:
+                        printer_param.layer_height = trajectory[0,2]
+                    print(printer_param.layer_height)
             prev_point = trajectory[0,:]
 
             for point in trajectory:
@@ -395,10 +402,10 @@ M205 S0 T0 ; sets the minimum extruding and travel feed rate, mm/sec
 
                 if point[2] <= printer_param.layer_height:
                     f.write(
-                        f"G1 F{printer_param.get_first_layer_feedrate()} X{point[0]:.3f} Y{point[1]:.3f} Z{point[2]:.2f} E{printer_param.total_extrusion_length:.5f}\n")
+                        f"G1 F{printer_param.get_first_layer_feedrate()} X{point[0]:.3f} Y{point[1]:.3f} Z{point[2]:.4f} E{printer_param.total_extrusion_length:.5f}\n")
                 else:
                     f.write(
-                        f"G1 F{printer_param.get_print_feedrate()} X{point[0]:.3f} Y{point[1]:.3f} Z{point[2]:.2f} E{printer_param.total_extrusion_length:.5f}\n")
+                        f"G1 F{printer_param.get_print_feedrate()} X{point[0]:.3f} Y{point[1]:.3f} Z{point[2]:.4f} E{printer_param.total_extrusion_length:.5f}\n")
                 prev_point = point
 
         # Write footer
