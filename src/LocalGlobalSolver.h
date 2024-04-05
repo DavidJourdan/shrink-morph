@@ -7,13 +7,16 @@
 class LocalGlobalSolver
 {
 public:
-  LocalGlobalSolver(const Eigen::Ref<Eigen::MatrixX3d> V, const Eigen::Ref<Eigen::MatrixX3i> F);
+  LocalGlobalSolver(const Eigen::MatrixXd& V, const Eigen::MatrixXi& F);
+  void init(const Eigen::MatrixXd& V, const Eigen::MatrixXi& F);
 
   void solveOneStep(Eigen::Ref<Eigen::MatrixX2d> U, double sMin, double sMax);
 
   void solve(Eigen::Ref<Eigen::MatrixX2d> U, double sMin, double sMax, int nbIter = -1);
 
   Eigen::VectorXd stretchAngles();
+
+  void conservativeResize(int _nF);
 
   Eigen::VectorXd s1;
   Eigen::VectorXd s2;

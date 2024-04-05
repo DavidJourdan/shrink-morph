@@ -34,7 +34,7 @@ int main(int argc, char* argv[])
   polyscope::view::style = polyscope::view::NavigateStyle::Planar;
   polyscope::options::groundPlaneMode = polyscope::GroundPlaneMode::ShadowOnly;
   polyscope::options::openImGuiWindowForUserCallback = false;
-  polyscope::loadColorMap("twilight", DATA_PATH_STR "twilight_colormap.png");
+  polyscope::loadColorMap("twilight", "twilight_colormap.png");
 
   // Some state about imgui windows to stack them
   float imguiStackMargin = 10;
@@ -51,7 +51,7 @@ int main(int argc, char* argv[])
   if(argc < 2)
     filename = igl::file_dialog_open();
   else
-    filename = std::string(DATA_PATH_STR) + std::string(argv[1]) + ".obj";
+    filename = argv[1];
   Eigen::MatrixXd V;
   Eigen::MatrixXi F;
   if(!igl::readOBJ(filename, V, F))
@@ -80,16 +80,17 @@ int main(int argc, char* argv[])
 
   // Run local-global parameterization algorithm
   Timer paramTimer("Parameterization");
-  LocalGlobalSolver LGsolver(V, F);
-  Eigen::MatrixXd P = localGlobal(V, F, lambda1, lambda2, LGsolver);
+
+  Eigen::MatrixXd P;
+  LocalGlobalSolver LGsolver = localGlobal(V, F, P, lambda1, lambda2);
   paramTimer.stop();
 
   // Add mesh and initial param to polyscope viewer
   polyscope::registerSurfaceMesh2D("Param", P, F)->setEdgeWidth(0.0);
-  polyscope::getSurfaceMesh("Param")->addFaceScalarQuantity("sigma1", LGsolver.s1);
-  polyscope::getSurfaceMesh("Param")->addFaceScalarQuantity("sigma2", LGsolver.s2);
+  polyscope::getSurfaceMesh("Param")->addFaceScalarQuantity("sigma1", LGsolver.s1.head(F.rows()));
+  polyscope::getSurfaceMesh("Param")->addFaceScalarQuantity("sigma2", LGsolver.s2.head(F.rows()));
   polyscope::getSurfaceMesh("Param")
-      ->addFaceScalarQuantity("stretch orientation", LGsolver.stretchAngles())
+      ->addFaceScalarQuantity("stretch orientation", LGsolver.stretchAngles().head(F.rows()))
       ->setColorMap("twilight")
       ->setMapRange({-PI / 2, PI / 2})
       ->setEnabled(true);
@@ -129,10 +130,10 @@ int main(int argc, char* argv[])
       // center P
       P.rowwise() -= P.colwise().sum() / P.rows();
 
-      polyscope::getSurfaceMesh("Param")->addFaceScalarQuantity("sigma1", LGsolver.s1);
-      polyscope::getSurfaceMesh("Param")->addFaceScalarQuantity("sigma2", LGsolver.s2);
+      polyscope::getSurfaceMesh("Param")->addFaceScalarQuantity("sigma1", LGsolver.s1.head(F.rows()));
+      polyscope::getSurfaceMesh("Param")->addFaceScalarQuantity("sigma2", LGsolver.s2.head(F.rows()));
       polyscope::getSurfaceMesh("Param")
-          ->addFaceScalarQuantity("stretch orientation", LGsolver.stretchAngles())
+          ->addFaceScalarQuantity("stretch orientation", LGsolver.stretchAngles().head(F.rows()))
           ->setColorMap("twilight")
           ->setMapRange({-PI / 2, PI / 2})
           ->setEnabled(true);
@@ -147,7 +148,7 @@ int main(int argc, char* argv[])
       ImGui::InputDouble("lambda1", &lambda1, 0, 0, "%.1e");
       ImGui::InputDouble("lambda2", &lambda2, 0, 0, "%.1e");
       ImGui::InputDouble("Thickness", &thickness, 0, 0, "%.1e");
-      if (ImGui::InputDouble("Curvature", &curvature, 0, 0, "%.1e"))
+      if(ImGui::InputDouble("Curvature", &curvature, 0, 0, "%.1e"))
       {
         deltaLambda = thickness * lambda1 * curvature;
       }
@@ -336,9 +337,8 @@ int main(int argc, char* argv[])
         auto adjointFunc = adjointFunction(geometry, F, MrInv, theta1, E1, lambda1, lambda2, deltaLambda, thickness);
 
         // Optimize this energy function using SGN [Zehnder et al. 2021]
-        sparse_gauss_newton(
-            geometry, V, xTarget, MrInv, theta1, theta2, adjointFunc, fixedIdx, n_iter, lim, wM, wL, E1, lambda1,
-            lambda2, deltaLambda, thickness, [&](const Eigen::VectorXd& X) {
+        sparse_gauss_newton(geometry, V, xTarget, MrInv, theta1, theta2, adjointFunc, fixedIdx, n_iter, lim, wM, wL, E1,
+                            lambda1, lambda2, deltaLambda, thickness, [&](const Eigen::VectorXd& X) {
                               // convert X to V for visualizing individual iterations
                               for(int i = 0; i < V.rows(); ++i)
                                 for(int j = 0; j < 3; ++j)

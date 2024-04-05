@@ -8,7 +8,12 @@
 #include <igl/project_isometrically_to_plane.h>
 #include <igl/repdiag.h>
 
-LocalGlobalSolver::LocalGlobalSolver(const Eigen::Ref<Eigen::MatrixX3d> V, const Eigen::Ref<Eigen::MatrixX3i> F) : _F(F)
+LocalGlobalSolver::LocalGlobalSolver(const Eigen::MatrixXd& V, const Eigen::MatrixXi& F)
+{
+  init(V, F);
+}
+
+void LocalGlobalSolver::init(const Eigen::MatrixXd& V, const Eigen::MatrixXi& F)
 {
   using namespace Eigen;
 
@@ -16,6 +21,7 @@ LocalGlobalSolver::LocalGlobalSolver(const Eigen::Ref<Eigen::MatrixX3d> V, const
   nV = V.rows();
   nF = F.rows();
 
+  _F = F;
   s1.resize(nF);
   s2.resize(nF);
   stressX.resize(nF, 2);
@@ -60,7 +66,7 @@ void LocalGlobalSolver::solveOneStep(Eigen::Ref<Eigen::MatrixX2d> U, double sMin
 
   Matrix<double, 2, -1> R(2, 2 * nF);
 #pragma omp parallel for schedule(static) num_threads(omp_get_max_threads() - 1)
-  for(int i = 0; i < _F.rows(); ++i)
+  for(int i = 0; i < nF; ++i)
   {
     Matrix2d B;
     B.col(0) = U.row(_F(i, 1)) - U.row(_F(i, 0));

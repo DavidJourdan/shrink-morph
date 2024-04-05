@@ -16,6 +16,7 @@
 #include <geometrycentral/surface/vertex_position_geometry.h>
 #include <igl/loop.h>
 #include <igl/readOBJ.h>
+
 #include <thread>
 
 int main(int argc, char* argv[])
@@ -23,7 +24,7 @@ int main(int argc, char* argv[])
   using namespace geometrycentral;
   using namespace geometrycentral::surface;
 
-  std::string filename = "beetle";
+  std::string filename = "beetle.obj";
   double wD = 0;
   double width = 200;
   double lim = 1e-6;
@@ -54,9 +55,9 @@ int main(int argc, char* argv[])
   // Load a mesh in OBJ format
   Eigen::MatrixXd V;
   Eigen::MatrixXi F;
-  if(!igl::readOBJ(std::string(DATA_PATH_STR) + filename + ".obj", V, F))
+  if(!igl::readOBJ(filename, V, F))
   {
-    std::cout << "File " << DATA_PATH_STR << filename << ".obj not found\n";
+    std::cout << "File " << filename << " not found\n";
     return 0;
   }
   // resize mesh to a 100mm width
@@ -77,8 +78,8 @@ int main(int argc, char* argv[])
 
   // Run local-global parameterization algorithm
   Timer paramTimer("Parameterization");
-  LocalGlobalSolver LGsolver(V, F);
-  Eigen::MatrixXd P = localGlobal(V, F, lambda1, lambda2, LGsolver);
+  Eigen::MatrixXd P;
+  LocalGlobalSolver LGsolver = localGlobal(V, F, P, lambda1, lambda2);
   paramTimer.stop();
 
   if(wD > 0) // smoothing
@@ -115,7 +116,6 @@ int main(int argc, char* argv[])
     for(int j = 0; j < 3; ++j)
       xTarget(3 * i + j) = V(i, j);
 
-
   // Simulation
   std::cout << "**********\nSIMULATION\n**********\n";
 
@@ -132,11 +132,9 @@ int main(int argc, char* argv[])
   Eigen::VectorXd d = (V - VTarget).cwiseProduct((V - VTarget)).rowwise().sum();
   d = d.array().sqrt();
   std::cout << "Avg distance = "
-            << 100 * d.sum() / d.size() / (VTarget.colwise().maxCoeff() - VTarget.colwise().minCoeff()).norm()
-            << "\n";
+            << 100 * d.sum() / d.size() / (VTarget.colwise().maxCoeff() - VTarget.colwise().minCoeff()).norm() << "\n";
   std::cout << "Max distance = "
-            << 100 * d.lpNorm<Eigen::Infinity>() /
-                  (VTarget.colwise().maxCoeff() - VTarget.colwise().minCoeff()).norm()
+            << 100 * d.lpNorm<Eigen::Infinity>() / (VTarget.colwise().maxCoeff() - VTarget.colwise().minCoeff()).norm()
             << "\n";
 
   // Directions optimizatiom
@@ -154,11 +152,9 @@ int main(int argc, char* argv[])
   d = (V - VTarget).cwiseProduct((V - VTarget)).rowwise().sum();
   d = d.array().sqrt();
   std::cout << "Avg distance = "
-            << 100 * d.sum() / d.size() / (VTarget.colwise().maxCoeff() - VTarget.colwise().minCoeff()).norm()
-            << "\n";
+            << 100 * d.sum() / d.size() / (VTarget.colwise().maxCoeff() - VTarget.colwise().minCoeff()).norm() << "\n";
   std::cout << "Max distance = "
-            << 100 * d.lpNorm<Eigen::Infinity>() /
-                  (VTarget.colwise().maxCoeff() - VTarget.colwise().minCoeff()).norm()
+            << 100 * d.lpNorm<Eigen::Infinity>() / (VTarget.colwise().maxCoeff() - VTarget.colwise().minCoeff()).norm()
             << "\n";
 
   // Generate trajectories
@@ -212,9 +208,6 @@ int main(int argc, char* argv[])
   std::vector<std::vector<std::vector<Vector3>>> paths =
       generatePaths(geometryUV, th1, th2, layerHeight, nLayers, spacing, timeLimit);
 
-  std::ofstream s(std::string(DATA_PATH_STR) + filename + ".path");
   for(int i = 0; i < nLayers; ++i)
-  {
-    writePaths(std::string(DATA_PATH_STR) + filename + ".path", paths[i], (i + 1) * layerHeight);
-  }
+    writePaths(filename + ".path", paths[i], (i + 1) * layerHeight);
 }

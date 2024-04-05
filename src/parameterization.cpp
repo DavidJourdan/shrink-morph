@@ -8,49 +8,18 @@
 #include <igl/loop.h>
 #include <igl/map_vertices_to_circle.h>
 
-Eigen::MatrixXd tutte_embedding(const Eigen::MatrixXd &_V, const Eigen::MatrixXi &_F)
+Eigen::MatrixXd tutteEmbedding(const Eigen::MatrixXd &_V, const Eigen::MatrixXi &_F, const std::vector<int> &boundary_indices)
 {
   Eigen::VectorXi b;  // #constr boundary constraint indices
   Eigen::MatrixXd bc; // #constr-by-2 2D boundary constraint positions
   Eigen::MatrixXd P;  // #V-by-2 2D vertex positions
   Eigen::MatrixXi F = _F;
 
-  // Identify boundary loops
-  std::vector<std::vector<int>> loops;
-  igl::boundary_loop(F, loops);
-
-  // find longest boundary loop
-  size_t idxMax = -1;
-  double maxLen = 0;
-  for(size_t i = 0; i < loops.size(); ++i)
-  {
-    double len = 0;
-    for(size_t j = 0; j < loops[i].size(); ++j)
-      len += (_V.row(loops[i][(j + 1) % loops[i].size()]) - _V.row(loops[i][j])).norm();
-
-    if(len > maxLen)
-    {
-      maxLen = len;
-      idxMax = i;
-    }
-  }
-
   // Set boundary vertex positions
-  b.resize(loops[idxMax].size(), 1);
-  for(size_t i = 0; i < loops[idxMax].size(); ++i)
-    b(i) = loops[idxMax][i];
+  b.resize(boundary_indices.size(), 1);
+  for(size_t i = 0; i < boundary_indices.size(); ++i)
+    b(i) = boundary_indices[i];
   igl::map_vertices_to_circle(_V, b, bc);
-
-  // Fill-in other holes
-  for(size_t i = 0; i < loops.size(); ++i)
-    if(i != idxMax)
-    {
-      int nB = loops[i].size();
-      int nF = F.rows();
-      F.conservativeResize(nF + nB - 2, 3);
-      for(int j = 0; j < nB - 2; ++j)
-        F.row(nF + j) << loops[i][0], loops[i][j + 1], loops[i][j + 2];
-    }
 
   // make sure normals are consistent
   Eigen::VectorXi C;
@@ -62,15 +31,50 @@ Eigen::MatrixXd tutte_embedding(const Eigen::MatrixXd &_V, const Eigen::MatrixXi
   return P;
 }
 
-Eigen::MatrixXd localGlobal(const Eigen::MatrixXd &V,
+LocalGlobalSolver localGlobal(const Eigen::MatrixXd &V,
                             const Eigen::MatrixXi &F,
+                            Eigen::MatrixXd &P,
                             double lambda1,
-                            double lambda2,
-                            LocalGlobalSolver &solver)
+                            double lambda2)
 {
   using namespace Eigen;
 
-  MatrixXd P = tutte_embedding(V, F);
+  Eigen::MatrixXi _F = F;
+
+  // Identify boundary loops
+  std::vector<std::vector<int>> loops;
+  igl::boundary_loop(_F, loops);
+
+  // find longest boundary loop
+  size_t idxMax = -1;
+  double maxLen = 0;
+  for(size_t i = 0; i < loops.size(); ++i)
+  {
+    double len = 0;
+    for(size_t j = 0; j < loops[i].size(); ++j)
+      len += (V.row(loops[i][(j + 1) % loops[i].size()]) - V.row(loops[i][j])).norm();
+
+    if(len > maxLen)
+    {
+      maxLen = len;
+      idxMax = i;
+    }
+  }
+
+  // Fill-in other holes
+  for(size_t i = 0; i < loops.size(); ++i)
+    if(i != idxMax)
+    {
+      int nB = loops[i].size();
+      int nF = _F.rows();
+      _F.conservativeResize(nF + nB - 2, 3);
+      for(int j = 0; j < nB - 2; ++j)
+        _F.row(nF + j) << loops[i][0], loops[i][j + 1], loops[i][j + 2];
+    }
+
+  LocalGlobalSolver solver(V, _F);
+
+  P = tutteEmbedding(V, F, loops[idxMax]);
 
   // run ARAP
   solver.solve(P, 1., 1.);
@@ -116,7 +120,10 @@ Eigen::MatrixXd localGlobal(const Eigen::MatrixXd &V,
   R(0, 1) = -R(1, 0);
   P = P * R;
 
-  return P;
+  // reinit with original topology
+  solver.init(V, F);
+  solver.solveOneStep(P, 1 / lambda2, 1 / lambda1);
+  return solver;
 }
 
 geometrycentral::surface::FaceData<Eigen::Matrix2d>
@@ -240,16 +247,13 @@ void subdivideMesh(geometrycentral::surface::VertexPositionGeometry &geometry,
 
   SurfaceMesh &mesh = geometry.mesh;
 
-  double avgEdgeLength = 0;
+  double maxEdgeLength = 0;
   geometry.requireVertexPositions();
   for(Edge e: mesh.edges())
-    //     avgEdgeLength += norm(geometry.vertexPositions[e.firstVertex()] -
-    //     geometry.vertexPositions[e.secondVertex()]);
-    // avgEdgeLength /= mesh.nEdges();
-    if(norm(geometry.vertexPositions[e.firstVertex()] - geometry.vertexPositions[e.secondVertex()]) > avgEdgeLength)
-      avgEdgeLength = norm(geometry.vertexPositions[e.firstVertex()] - geometry.vertexPositions[e.secondVertex()]);
+    if(norm(geometry.vertexPositions[e.firstVertex()] - geometry.vertexPositions[e.secondVertex()]) > maxEdgeLength)
+      maxEdgeLength = norm(geometry.vertexPositions[e.firstVertex()] - geometry.vertexPositions[e.secondVertex()]);
 
-  while(avgEdgeLength > threshold)
+  while(maxEdgeLength > threshold)
   {
     Eigen::MatrixX3i tempF = F;
     Eigen::SparseMatrix<double> S;
@@ -260,7 +264,7 @@ void subdivideMesh(geometrycentral::surface::VertexPositionGeometry &geometry,
 
     subdivMat.push_back(S);
 
-    avgEdgeLength /= 2;
+    maxEdgeLength /= 2;
   }
 }
 
