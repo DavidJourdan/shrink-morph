@@ -1,12 +1,14 @@
 #include "path_extraction.h"
 
 #include "parameterization.h"
+#include "solvers.h"
 #include "stretch_angles.h"
 #include "stripe_patterns.h"
 #include "timer.h"
 
 #include <geometrycentral/surface/direction_fields.h>
 #include <geometrycentral/surface/manifold_surface_mesh.h>
+#include <geometrycentral/numerical/linear_solvers.h>
 #include <igl/boundary_loop.h>
 #include <igl/ramer_douglas_peucker.h>
 #include <polyscope/curve_network.h>
@@ -18,17 +20,6 @@
 #include <ortools/constraint_solver/routing_index_manager.h>
 #include <ortools/constraint_solver/routing_parameters.h>
 #endif
-
-#ifdef USE_PARDISO
-#include <Eigen/PardisoSupport>
-using LDLTSolver = Eigen::PardisoLDLT<Eigen::SparseMatrix<double>>;
-using LLTSolver = Eigen::PardisoLLT<Eigen::SparseMatrix<double>>;
-using LUSolver = Eigen::PardisoLU<Eigen::SparseMatrix<double>>;
-#else
-using LDLTSolver = Eigen::SimplicialLDLT<Eigen::SparseMatrix<double>>;
-using LLTSolver = Eigen::SimplicialLLT<Eigen::SparseMatrix<double>>;
-using LUSolver = Eigen::SparseLU<Eigen::SparseMatrix<double>>;
-#endif // USE_PARDISO
 
 using namespace geometrycentral;
 using namespace geometrycentral::surface;

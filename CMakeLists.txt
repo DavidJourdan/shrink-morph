@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.16)
+cmake_minimum_required(VERSION 3.29)
 
 project(shrink_morph)
 
@@ -6,9 +6,15 @@ project(shrink_morph)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+# FindXXX.cmake are in the /cmake directory
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake") 
+
 ### Required dependencies ###
 
 include(FetchContent)
+
+# Look for a system install of Eigen (otherwise dependencies will fetch it)
+find_package(Eigen3)
 
 # libigl
 FetchContent_Declare(
@@ -27,15 +33,14 @@ FetchContent_Declare(
 # polyscope
 FetchContent_Declare(
     polyscope
-    GIT_REPOSITORY https://github.com/nmwsharp/polyscope.git
-    GIT_TAG c772fd9bf05f4d914fbc74fd5f1a69af58687a87
+    URL https://github.com/DavidJourdan/polyscope/releases/download/v2.2.1/src.zip
 )
 
 # geometry-central
 FetchContent_Declare(
     geometry-central
     GIT_REPOSITORY https://github.com/nmwsharp/geometry-central.git
-    GIT_TAG b467ce80c4be13b94160f0f579cc71500eae5663
+    GIT_TAG ca6ca18b4f761d69f60ba33aa5f869269cf97e3f
 )
 FetchContent_MakeAvailable(libigl TinyAD polyscope geometry-central)
 
@@ -54,8 +59,7 @@ endif(ortools_FOUND)
 # OpenMP
 find_package(OpenMP)
 if(OpenMP_CXX_FOUND)
-  message(STATUS "Found OpenMP")
-  set(EXTRA_LIBS ${EXTRA_LIBS}  ${OpenMP_CXX_LIBRARIES})
+  set(EXTRA_LIBS ${EXTRA_LIBS} OpenMP::OpenMP_CXX)
 endif(OpenMP_CXX_FOUND)
 
 # MKL PARDISO 
@@ -70,6 +74,21 @@ find_package(MKL CONFIG)
 
 if(MKL_FOUND)
   set(EXTRA_LIBS ${EXTRA_LIBS} MKL::MKL)
+else()
+  # SUITESPARSE & UMFPACK
+  find_package(SuiteSparse QUIET)
+  if (SUITESPARSE_FOUND)
+    string(REGEX REPLACE "cholmod" "umfpack" UMFPACK_LIBRARY ${CHOLMOD_LIBRARY})
+    if(EXISTS ${UMFPACK_LIBRARY})
+      list(APPEND SUITESPARSE_LIBRARIES ${UMFPACK_LIBRARY})
+    else()
+      set(SUITESPARSE_FOUND FALSE)
+    endif()
+  endif (SUITESPARSE_FOUND)
+
+  if (SUITESPARSE_FOUND)
+    set(EXTRA_LIBS ${EXTRA_LIBS} ${SUITESPARSE_LIBRARIES})
+  endif (SUITESPARSE_FOUND)
 endif(MKL_FOUND)
 
 # cpp files minus the mains
@@ -101,6 +120,11 @@ foreach(exec ${EXECUTABLES})
     target_compile_options(${exec} PUBLIC $<TARGET_PROPERTY:MKL::MKL,INTERFACE_COMPILE_OPTIONS>)
     target_include_directories(${exec} PUBLIC $<TARGET_PROPERTY:MKL::MKL,INTERFACE_INCLUDE_DIRECTORIES>)
   endif(MKL_FOUND)
+
+  if(SUITESPARSE_FOUND)
+    target_compile_definitions(${exec} PUBLIC USE_SUITESPARSE)
+    target_include_directories(${exec} PUBLIC ${SUITESPARSE_INCLUDE_DIRS})
+  endif(SUITESPARSE_FOUND)
 
   target_compile_definitions(${exec} PUBLIC DATA_PATH_STR="${CMAKE_CURRENT_SOURCE_DIR}/data/")
   target_compile_options(${exec} PRIVATE $<$<CONFIG:RELEASE>:

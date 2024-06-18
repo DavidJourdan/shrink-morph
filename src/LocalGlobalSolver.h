@@ -1,8 +1,10 @@
 #pragma once
 
+#include "solvers.h"
+
 #include <Eigen/Core>
 #include <Eigen/Sparse>
-#include <geometrycentral/numerical/linear_solvers.h>
+#include <memory>
 
 class LocalGlobalSolver
 {
@@ -40,5 +42,5 @@ private:
   Eigen::SparseMatrix<double> _K; // rhs pre-multiplier
   Eigen::Matrix<double, 2, -1> _Ainv;
   Eigen::MatrixX3i _F;
-  std::unique_ptr<geometrycentral::PositiveDefiniteSolver<double>> _solver;
+  std::unique_ptr<LDLTSolver> _solver;
 };

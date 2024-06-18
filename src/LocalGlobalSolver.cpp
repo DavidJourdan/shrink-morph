@@ -57,7 +57,8 @@ void LocalGlobalSolver::init(const Eigen::MatrixXd& V, const Eigen::MatrixXi& F)
   Q.reserve(1);
   Q.insert(0, 0) = 1;
 
-  _solver = std::make_unique<geometrycentral::PositiveDefiniteSolver<double>>(Q);
+  _solver = std::make_unique<LDLTSolver>();
+  _solver->compute(Q);
 }
 
 void LocalGlobalSolver::solveOneStep(Eigen::Ref<Eigen::MatrixX2d> U, double sMin, double sMax)

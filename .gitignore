@@ -4,3 +4,4 @@ build/
 *.ini
 *.ipynb_checkpoints
 *.path
+.DS_Store

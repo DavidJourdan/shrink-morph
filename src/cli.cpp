@@ -24,7 +24,7 @@ int main(int argc, char* argv[])
   using namespace geometrycentral;
   using namespace geometrycentral::surface;
 
-  std::string filename = "beetle.obj";
+  std::string filename = DATA_PATH_STR "beetle.obj";
   double wD = 0;
   double width = 200;
   double lim = 1e-6;

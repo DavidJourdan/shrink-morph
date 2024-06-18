@@ -34,7 +34,7 @@ int main(int argc, char* argv[])
   polyscope::view::style = polyscope::view::NavigateStyle::Planar;
   polyscope::options::groundPlaneMode = polyscope::GroundPlaneMode::ShadowOnly;
   polyscope::options::openImGuiWindowForUserCallback = false;
-  polyscope::loadColorMap("twilight", "twilight_colormap.png");
+  polyscope::loadColorMap("twilight", DATA_PATH_STR "twilight_colormap.png");
 
   // Some state about imgui windows to stack them
   float imguiStackMargin = 10;

@@ -4,17 +4,9 @@
 #include "parameterization.h"
 #include "simulation_utils.h"
 #include "timer.h"
+#include "solvers.h"
 
 #include <TinyAD/Utils/NewtonDecrement.hh>
-
-#ifdef USE_PARDISO
-#include "Eigen/PardisoSupport"
-using LLTSolver = Eigen::PardisoLLT<Eigen::SparseMatrix<double>>;
-using LUSolver = Eigen::PardisoLU<Eigen::SparseMatrix<double>>;
-#else
-using LLTSolver = Eigen::SimplicialLLT<Eigen::SparseMatrix<double>>;
-using LUSolver = Eigen::SparseLU<Eigen::SparseMatrix<double>>;
-#endif // USE_PARDISO
 
 using namespace geometrycentral::surface;
 

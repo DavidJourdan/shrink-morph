@@ -1,6 +1,5 @@
 #pragma once
 
-#include <geometrycentral/numerical/linear_solvers.h>
 #include <geometrycentral/surface/embedded_geometry_interface.h>
 #include <geometrycentral/surface/intrinsic_geometry_interface.h>
 
