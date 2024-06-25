@@ -17,30 +17,29 @@ include(FetchContent)
 find_package(Eigen3)
 
 # libigl
-FetchContent_Declare(
-    libigl
-    GIT_REPOSITORY https://github.com/libigl/libigl.git
-    GIT_TAG fd16e24391f3a85628999fe67b84a9b2201f2bc2
+FetchContent_Declare(libigl
+  URL https://github.com/libigl/libigl/archive/refs/tags/v2.5.0.zip
+  SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/deps/libigl-src"
+  BINARY_DIR "${CMAKE_CURRENT_SOURCE_DIR}/deps/libigl-build"
 )
-
 # TinyAD
-FetchContent_Declare(
-    TinyAD
-    GIT_REPOSITORY https://github.com/patr-schm/TinyAD.git
-    GIT_TAG 81fab13c3884b787c0f03bbbbb95b0f794e54434
+FetchContent_Declare(TinyAD
+  GIT_REPOSITORY https://github.com/patr-schm/TinyAD.git
+  GIT_TAG 81fab13c3884b787c0f03bbbbb95b0f794e54434
+  SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/deps/TinyAD-src"
+  BINARY_DIR "${CMAKE_CURRENT_SOURCE_DIR}/deps/TinyAD-build"
 )
-
 # polyscope
-FetchContent_Declare(
-    polyscope
-    URL https://github.com/DavidJourdan/polyscope/releases/download/v2.2.1/src.zip
+FetchContent_Declare(polyscope
+  URL https://github.com/DavidJourdan/polyscope/releases/download/v2.2.1/src.zip
+  SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/deps/polyscope-src"
+  BINARY_DIR "${CMAKE_CURRENT_SOURCE_DIR}/deps/polyscope-build"
 )
-
 # geometry-central
-FetchContent_Declare(
-    geometry-central
-    GIT_REPOSITORY https://github.com/nmwsharp/geometry-central.git
-    GIT_TAG ca6ca18b4f761d69f60ba33aa5f869269cf97e3f
+FetchContent_Declare(geometry-central
+  URL https://github.com/DavidJourdan/geometry-central/releases/download/v0.1.1/src.zip
+  SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/deps/geometry-central-src"
+  BINARY_DIR "${CMAKE_CURRENT_SOURCE_DIR}/deps/geometry-central-build"
 )
 FetchContent_MakeAvailable(libigl TinyAD polyscope geometry-central)
 
