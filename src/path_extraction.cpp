@@ -320,9 +320,12 @@ void stripePattern(VertexPositionGeometry& geometry,
   std::vector<std::vector<std::vector<Vector3>>> paths =
       generatePaths(geometryUV, th1, th2, layerHeight, nLayers, spacing, timeLimit);
 
+  //Update height every layers
+  static double height = 0;
   for(int i = 0; i < nLayers; ++i)
   {
-    writePaths(filename + ".path", paths[i], (i + 1) * layerHeight);
+    height += layerHeight + static_cast<float>(i) / (nLayers - 1) * 2 * (0.8 / nLayers - layerHeight);
+    writePaths(filename + ".path", paths[i],height);
     drawPathsAndTravels(paths[i], spacing, i + 1);
   }
 }

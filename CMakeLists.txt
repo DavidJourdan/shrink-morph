@@ -97,6 +97,7 @@ file(GLOB SRCFILES
   src/newton.cpp
   src/parameterization.cpp
   src/path_extraction.cpp
+  src/save.cpp
   src/stripe_patterns.cpp
   src/stretch_angles.cpp
   src/simulation_utils.cpp)
@@ -110,7 +111,7 @@ set(EXECUTABLES
 )
   
 foreach(exec ${EXECUTABLES})
-  target_link_libraries(${exec} Eigen3::Eigen geometry-central polyscope TinyAD igl::core ${EXTRA_LIBS})
+  target_link_libraries(${exec} Eigen3::Eigen geometry-central polyscope TinyAD igl::core nlohmann_json::nlohmann_json ${EXTRA_LIBS})
     
   # Compiler definitions and options
   if(MKL_FOUND)
@@ -126,11 +127,11 @@ foreach(exec ${EXECUTABLES})
   endif(SUITESPARSE_FOUND)
 
   target_compile_definitions(${exec} PUBLIC DATA_PATH_STR="${CMAKE_CURRENT_SOURCE_DIR}/data/")
-  target_compile_options(${exec} PRIVATE $<$<CONFIG:RELEASE>:
-    $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>,$<CXX_COMPILER_ID:GNU>>:-Ofast>
-    $<$<CXX_COMPILER_ID:MSVC>:/Ox>>)
+  # target_compile_options(${exec} PRIVATE $<$<CONFIG:RELEASE>:
+  #   $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>,$<CXX_COMPILER_ID:GNU>>:-Ofast>
+  #   $<$<CXX_COMPILER_ID:MSVC>:/Ox>>)
 
-  # reomove annoying Polyscope-related compiler warning
+  # remove annoying Polyscope-related compiler warning
   target_compile_options(${exec} PRIVATE 
     $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>,$<CXX_COMPILER_ID:GNU>>:-Wno-nonnull>)
 endforeach(exec ${EXECUTABLES})

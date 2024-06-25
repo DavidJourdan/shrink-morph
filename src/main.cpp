@@ -11,6 +11,7 @@
 #include "simulation_utils.h"
 #include "stretch_angles.h"
 #include "timer.h"
+#include "save.h"
 
 #include <geometrycentral/surface/manifold_surface_mesh.h>
 #include <geometrycentral/surface/vertex_position_geometry.h>
@@ -22,6 +23,8 @@
 #include <polyscope/surface_mesh.h>
 
 #include <thread>
+
+
 
 int main(int argc, char* argv[])
 {
@@ -40,11 +43,11 @@ int main(int argc, char* argv[])
   float imguiStackMargin = 10;
   float rightWindowsWidth = 370;
 
-  // Material data
-  double lambda1 = 0.58;
-  double lambda2 = 1.08;
-  double thickness = 1.218;
-  double deltaLambda = 0.0226764665509417;
+  double lambda1, lambda2, thickness, deltaLambda, lim;
+  int nIter, nLayers;
+
+  // Load advanced parameters from file
+  loadAdvancedParams(lambda1, lambda2, thickness, deltaLambda, nLayers, nIter, lim);
 
   // Load a mesh in OBJ format
   std::string filename;
@@ -99,10 +102,7 @@ int main(int argc, char* argv[])
   polyscope::state::userCallback = [&]() {
     // parameters modifiable in the GUI
     static double wD = 0.1;
-    static double lim = 1e-6;
-    static int n_iter = 1000;
     static double rotAngle = 0;
-    static double curvature = deltaLambda / thickness / lambda1;
 
     ImGui::PushID("user_callback");
     ImGui::SetNextWindowPos(
@@ -119,7 +119,7 @@ int main(int argc, char* argv[])
       auto func = parameterizationFunction(geometry, wD, lambda1, lambda2);
 
       // optimize the parameterization function with Newton's method
-      newton(geometry, P, func, n_iter, lim);
+      newton(geometry, P, func, nIter, lim);
       paramTimer.stop();
 
       // Show resulting parametrization
@@ -145,15 +145,29 @@ int main(int argc, char* argv[])
 
     if(ImGui::TreeNode("Advanced"))
     {
-      ImGui::InputDouble("lambda1", &lambda1, 0, 0, "%.1e");
-      ImGui::InputDouble("lambda2", &lambda2, 0, 0, "%.1e");
-      ImGui::InputDouble("Thickness", &thickness, 0, 0, "%.1e");
-      if(ImGui::InputDouble("Curvature", &curvature, 0, 0, "%.1e"))
-      {
-        deltaLambda = thickness * lambda1 * curvature;
+      if(ImGui::InputDouble("lambda1", &lambda1, 0, 0, "%.1e")){
+        updateAndSaveAdvancedParams(lambda1, lambda2, thickness, deltaLambda, nLayers, nIter, lim);
       }
-      ImGui::InputInt("Iterations", &n_iter);
-      ImGui::InputDouble("Limit", &lim, 0, 0, "%.1e");
+      if(ImGui::InputDouble("lambda2", &lambda2, 0, 0, "%.1e")){
+        updateAndSaveAdvancedParams(lambda1, lambda2, thickness, deltaLambda, nLayers, nIter, lim);
+      }
+      if(ImGui::InputDouble("Thickness", &thickness, 0, 0, "%.1e")){
+        updateAndSaveAdvancedParams(lambda1, lambda2, thickness, deltaLambda, nLayers, nIter, lim);
+      }
+      //if (ImGui::InputDouble("Curvature", &curvature, 0, 0, "%.1e"))
+      //{
+      //  deltaLambda = thickness * lambda1 * curvature;
+      //  updateAndSaveAdvancedParams(lambda1, lambda2, thickness, deltaLambda, n_layers, nIter, lim);
+      //}
+      if(ImGui::InputInt("Nb of layers",&nLayers)){
+        updateAndSaveAdvancedParams(lambda1, lambda2, thickness, deltaLambda, nLayers, nIter, lim);
+      }
+      if(ImGui::InputInt("Iterations", &nIter)){
+        updateAndSaveAdvancedParams(lambda1, lambda2, thickness, deltaLambda, nLayers, nIter, lim);
+      }
+      if(ImGui::InputDouble("Limit", &lim, 0, 0, "%.1e")){
+        updateAndSaveAdvancedParams(lambda1, lambda2, thickness, deltaLambda, nLayers, nIter, lim);
+      }
       if(ImGui::Button("Rotate"))
       {
         // run ARAP
@@ -246,7 +260,7 @@ int main(int argc, char* argv[])
     static double E1 = 10;
     static double width = 100;
     static double lim = 1e-6;
-    static int n_iter = 1000;
+    static int nIter = 1000;
     static bool displayTravel = false;
 
     ImGui::PushID("user_callback");
@@ -289,7 +303,7 @@ int main(int argc, char* argv[])
         auto func = simulationFunction(geometry, MrInv, theta1, theta2, E1, lambda1, lambda2, deltaLambda, thickness);
 
         // (Projected) Newton optimization
-        newton(geometry, V, func, n_iter, lim, true, fixedIdx, [&](const Eigen::VectorXd& X) {
+        newton(geometry, V, func, nIter, lim, true, fixedIdx, [&](const Eigen::VectorXd& X) {
           // convert X to V for visualizing individual iterations
           for(int i = 0; i < V.rows(); ++i)
             for(int j = 0; j < 3; ++j)
@@ -337,7 +351,7 @@ int main(int argc, char* argv[])
         auto adjointFunc = adjointFunction(geometry, F, MrInv, theta1, E1, lambda1, lambda2, deltaLambda, thickness);
 
         // Optimize this energy function using SGN [Zehnder et al. 2021]
-        sparse_gauss_newton(geometry, V, xTarget, MrInv, theta1, theta2, adjointFunc, fixedIdx, n_iter, lim, wM, wL, E1,
+        sparse_gauss_newton(geometry, V, xTarget, MrInv, theta1, theta2, adjointFunc, fixedIdx, nIter, lim, wM, wL, E1,
                             lambda1, lambda2, deltaLambda, thickness, [&](const Eigen::VectorXd& X) {
                               // convert X to V for visualizing individual iterations
                               for(int i = 0; i < V.rows(); ++i)
@@ -392,7 +406,7 @@ int main(int argc, char* argv[])
 
       trajTimer.start();
       trajectoriesRun = true;
-      stripePattern(geometry, V, P, F, theta2, filename, timeLimit);
+      stripePattern(geometry, V, P, F, theta2, filename, timeLimit, 0.08, 0.4, nLayers);
       trajTimer.stop();
     }
     ImGui::SameLine();
@@ -402,7 +416,7 @@ int main(int argc, char* argv[])
 
     if(ImGui::TreeNode("Advanced parameters"))
     {
-      ImGui::InputInt("Iterations", &n_iter);
+      ImGui::InputInt("Iterations", &nIter);
       ImGui::InputDouble("Limit", &lim, 0, 0, "%.1e");
       ImGui::InputDouble("E1 / E2 ratio", &E1, 0, 0, "%.0f");
 
@@ -443,7 +457,7 @@ int main(int argc, char* argv[])
       ImGui::End();
     }
 
-    static int lastLayer = 10;
+    static int lastLayer = nLayers;
     if(trajectoriesRun)
     {
       ImGui::SetNextWindowPos(ImVec2(polyscope::view::windowWidth - (rightWindowsWidth + imguiStackMargin),
@@ -456,7 +470,7 @@ int main(int argc, char* argv[])
       else
       {
         auto onChangeLayer = [&]() {
-          for(int i = 1; i <= 10; ++i)
+          for(int i = 1; i <= nLayers; ++i)
           {
             if(i == lastLayer)
             {
@@ -470,7 +484,7 @@ int main(int argc, char* argv[])
             }
           }
         };
-        if(ImGui::SliderInt("Layer", &lastLayer, 1, 10))
+        if(ImGui::SliderInt("Layer", &lastLayer, 1, lastLayer))
         {
           onChangeLayer();
         }
