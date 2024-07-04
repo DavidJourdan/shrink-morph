@@ -1,6 +1,6 @@
 #pragma once
 
-#include <Eigen/Dense>
+#include <Eigen/Core>
 #include <TinyAD/Support/GeometryCentral.hh>
 #include <TinyAD/ScalarFunction.hh>
 #include <geometrycentral/surface/intrinsic_geometry_interface.h>

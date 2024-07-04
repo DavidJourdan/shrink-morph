@@ -8,10 +8,10 @@
 #include "newton.h"
 #include "parameterization.h"
 #include "path_extraction.h"
+#include "save.h"
 #include "simulation_utils.h"
 #include "stretch_angles.h"
 #include "timer.h"
-#include "save.h"
 
 #include <geometrycentral/surface/manifold_surface_mesh.h>
 #include <geometrycentral/surface/vertex_position_geometry.h>
@@ -23,8 +23,6 @@
 #include <polyscope/surface_mesh.h>
 
 #include <thread>
-
-
 
 int main(int argc, char* argv[])
 {
@@ -84,16 +82,17 @@ int main(int argc, char* argv[])
   // Run local-global parameterization algorithm
   Timer paramTimer("Parameterization");
 
-  Eigen::MatrixXd P;
-  LocalGlobalSolver LGsolver = localGlobal(V, F, P, lambda1, lambda2);
+  Eigen::MatrixXd P = localGlobal(V, F, lambda1, lambda2);
   paramTimer.stop();
+
+  const auto &[sigma1, sigma2, angles] = computeSVDdata(V, P, F);
 
   // Add mesh and initial param to polyscope viewer
   polyscope::registerSurfaceMesh2D("Param", P, F)->setEdgeWidth(0.0);
-  polyscope::getSurfaceMesh("Param")->addFaceScalarQuantity("sigma1", LGsolver.s1.head(F.rows()));
-  polyscope::getSurfaceMesh("Param")->addFaceScalarQuantity("sigma2", LGsolver.s2.head(F.rows()));
+  polyscope::getSurfaceMesh("Param")->addFaceScalarQuantity("sigma1", sigma1);
+  polyscope::getSurfaceMesh("Param")->addFaceScalarQuantity("sigma2", sigma2);
   polyscope::getSurfaceMesh("Param")
-      ->addFaceScalarQuantity("stretch orientation", LGsolver.stretchAngles().head(F.rows()))
+      ->addFaceScalarQuantity("stretch orientation", angles)
       ->setColorMap("twilight")
       ->setMapRange({-PI / 2, PI / 2})
       ->setEnabled(true);
@@ -126,14 +125,12 @@ int main(int argc, char* argv[])
       polyscope::getSurfaceMesh("Param")->updateVertexPositions2D(P);
 
       // compute data from SVDs and display them
-      LGsolver.solveOneStep(P, 1 / lambda2, 1 / lambda1);
-      // center P
-      P.rowwise() -= P.colwise().sum() / P.rows();
+      const auto &[sigma1, sigma2, angles] = computeSVDdata(V, P, F);
 
-      polyscope::getSurfaceMesh("Param")->addFaceScalarQuantity("sigma1", LGsolver.s1.head(F.rows()));
-      polyscope::getSurfaceMesh("Param")->addFaceScalarQuantity("sigma2", LGsolver.s2.head(F.rows()));
+      polyscope::getSurfaceMesh("Param")->addFaceScalarQuantity("sigma1", sigma1);
+      polyscope::getSurfaceMesh("Param")->addFaceScalarQuantity("sigma2", sigma2);
       polyscope::getSurfaceMesh("Param")
-          ->addFaceScalarQuantity("stretch orientation", LGsolver.stretchAngles().head(F.rows()))
+          ->addFaceScalarQuantity("stretch orientation", angles)
           ->setColorMap("twilight")
           ->setMapRange({-PI / 2, PI / 2})
           ->setEnabled(true);
@@ -145,32 +142,39 @@ int main(int argc, char* argv[])
 
     if(ImGui::TreeNode("Advanced"))
     {
-      if(ImGui::InputDouble("lambda1", &lambda1, 0, 0, "%.1e")){
+      if(ImGui::InputDouble("lambda1", &lambda1, 0, 0, "%.1e"))
+      {
         updateAndSaveAdvancedParams(lambda1, lambda2, thickness, deltaLambda, nLayers, nIter, lim);
       }
-      if(ImGui::InputDouble("lambda2", &lambda2, 0, 0, "%.1e")){
+      if(ImGui::InputDouble("lambda2", &lambda2, 0, 0, "%.1e"))
+      {
         updateAndSaveAdvancedParams(lambda1, lambda2, thickness, deltaLambda, nLayers, nIter, lim);
       }
-      if(ImGui::InputDouble("Thickness", &thickness, 0, 0, "%.1e")){
+      if(ImGui::InputDouble("Thickness", &thickness, 0, 0, "%.1e"))
+      {
         updateAndSaveAdvancedParams(lambda1, lambda2, thickness, deltaLambda, nLayers, nIter, lim);
       }
-      //if (ImGui::InputDouble("Curvature", &curvature, 0, 0, "%.1e"))
+      // if (ImGui::InputDouble("Curvature", &curvature, 0, 0, "%.1e"))
       //{
-      //  deltaLambda = thickness * lambda1 * curvature;
-      //  updateAndSaveAdvancedParams(lambda1, lambda2, thickness, deltaLambda, n_layers, nIter, lim);
-      //}
-      if(ImGui::InputInt("Nb of layers",&nLayers)){
+      //   deltaLambda = thickness * lambda1 * curvature;
+      //   updateAndSaveAdvancedParams(lambda1, lambda2, thickness, deltaLambda, n_layers, nIter, lim);
+      // }
+      if(ImGui::InputInt("Nb of layers", &nLayers))
+      {
         updateAndSaveAdvancedParams(lambda1, lambda2, thickness, deltaLambda, nLayers, nIter, lim);
       }
-      if(ImGui::InputInt("Iterations", &nIter)){
+      if(ImGui::InputInt("Iterations", &nIter))
+      {
         updateAndSaveAdvancedParams(lambda1, lambda2, thickness, deltaLambda, nLayers, nIter, lim);
       }
-      if(ImGui::InputDouble("Limit", &lim, 0, 0, "%.1e")){
+      if(ImGui::InputDouble("Limit", &lim, 0, 0, "%.1e"))
+      {
         updateAndSaveAdvancedParams(lambda1, lambda2, thickness, deltaLambda, nLayers, nIter, lim);
       }
       if(ImGui::Button("Rotate"))
       {
         // run ARAP
+        LocalGlobalSolver LGsolver(V, F);
         LGsolver.solve(P, 1., 1.);
 
         // center and rotate

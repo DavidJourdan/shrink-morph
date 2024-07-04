@@ -6,9 +6,9 @@
 #include "stripe_patterns.h"
 #include "timer.h"
 
+#include <geometrycentral/numerical/linear_solvers.h>
 #include <geometrycentral/surface/direction_fields.h>
 #include <geometrycentral/surface/manifold_surface_mesh.h>
-#include <geometrycentral/numerical/linear_solvers.h>
 #include <igl/boundary_loop.h>
 #include <igl/ramer_douglas_peucker.h>
 #include <polyscope/curve_network.h>
@@ -320,12 +320,12 @@ void stripePattern(VertexPositionGeometry& geometry,
   std::vector<std::vector<std::vector<Vector3>>> paths =
       generatePaths(geometryUV, th1, th2, layerHeight, nLayers, spacing, timeLimit);
 
-  //Update height every layers
+  // Update height every layers
   static double height = 0;
   for(int i = 0; i < nLayers; ++i)
   {
     height += layerHeight + static_cast<float>(i) / (nLayers - 1) * 2 * (0.8 / nLayers - layerHeight);
-    writePaths(filename + ".path", paths[i],height);
+    writePaths(filename + ".path", paths[i], height);
     drawPathsAndTravels(paths[i], spacing, i + 1);
   }
 }

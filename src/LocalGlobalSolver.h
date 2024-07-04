@@ -3,7 +3,7 @@
 #include "solvers.h"
 
 #include <Eigen/Core>
-#include <Eigen/Sparse>
+#include <Eigen/SparseCore>
 #include <memory>
 
 class LocalGlobalSolver
@@ -17,8 +17,6 @@ public:
   void solve(Eigen::Ref<Eigen::MatrixX2d> U, double sMin, double sMax, int nbIter = -1);
 
   Eigen::VectorXd stretchAngles();
-
-  void conservativeResize(int _nF);
 
   Eigen::VectorXd s1;
   Eigen::VectorXd s2;

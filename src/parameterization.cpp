@@ -7,8 +7,10 @@
 #include <igl/harmonic.h>
 #include <igl/loop.h>
 #include <igl/map_vertices_to_circle.h>
+#include <igl/project_isometrically_to_plane.h>
 
-Eigen::MatrixXd tutteEmbedding(const Eigen::MatrixXd &_V, const Eigen::MatrixXi &_F, const std::vector<int> &boundary_indices)
+Eigen::MatrixXd
+tutteEmbedding(const Eigen::MatrixXd& _V, const Eigen::MatrixXi& _F, const std::vector<int>& boundary_indices)
 {
   Eigen::VectorXi b;  // #constr boundary constraint indices
   Eigen::MatrixXd bc; // #constr-by-2 2D boundary constraint positions
@@ -31,11 +33,7 @@ Eigen::MatrixXd tutteEmbedding(const Eigen::MatrixXd &_V, const Eigen::MatrixXi 
   return P;
 }
 
-LocalGlobalSolver localGlobal(const Eigen::MatrixXd &V,
-                            const Eigen::MatrixXi &F,
-                            Eigen::MatrixXd &P,
-                            double lambda1,
-                            double lambda2)
+Eigen::MatrixXd localGlobal(const Eigen::MatrixXd& V, const Eigen::MatrixXi& F, double lambda1, double lambda2)
 {
   using namespace Eigen;
 
@@ -74,7 +72,7 @@ LocalGlobalSolver localGlobal(const Eigen::MatrixXd &V,
 
   LocalGlobalSolver solver(V, _F);
 
-  P = tutteEmbedding(V, F, loops[idxMax]);
+  MatrixXd P = tutteEmbedding(V, F, loops[idxMax]);
 
   // run ARAP
   solver.solve(P, 1., 1.);
@@ -123,21 +121,21 @@ LocalGlobalSolver localGlobal(const Eigen::MatrixXd &V,
   // reinit with original topology
   solver.init(V, F);
   solver.solveOneStep(P, 1 / lambda2, 1 / lambda1);
-  return solver;
+  return P;
 }
 
 geometrycentral::surface::FaceData<Eigen::Matrix2d>
-precomputeParamData(geometrycentral::surface::VertexPositionGeometry &geometry)
+precomputeParamData(geometrycentral::surface::VertexPositionGeometry& geometry)
 {
   using namespace geometrycentral;
   using namespace geometrycentral::surface;
 
-  SurfaceMesh &mesh = geometry.mesh;
+  SurfaceMesh& mesh = geometry.mesh;
 
   FaceData<Eigen::Matrix2d> rest_shapes(mesh);
   geometry.requireVertexPositions();
 
-  auto toEigen = [](const geometrycentral::Vector3 &_v) { return Eigen::Vector3d(_v.x, _v.y, _v.z); };
+  auto toEigen = [](const geometrycentral::Vector3& _v) { return Eigen::Vector3d(_v.x, _v.y, _v.z); };
 
   for(Face f: mesh.faces())
   {
@@ -163,9 +161,9 @@ precomputeParamData(geometrycentral::surface::VertexPositionGeometry &geometry)
 }
 
 geometrycentral::surface::FaceData<Eigen::Matrix2d>
-precomputeSimData(geometrycentral::surface::ManifoldSurfaceMesh &mesh,
-                  const Eigen::MatrixXd &P,
-                  const Eigen::MatrixXi &F)
+precomputeSimData(geometrycentral::surface::ManifoldSurfaceMesh& mesh,
+                  const Eigen::MatrixXd& P,
+                  const Eigen::MatrixXi& F)
 {
   using namespace geometrycentral;
   using namespace geometrycentral::surface;
@@ -187,12 +185,12 @@ precomputeSimData(geometrycentral::surface::ManifoldSurfaceMesh &mesh,
 }
 
 geometrycentral::surface::EdgeData<double>
-computeDualCotanWeights(geometrycentral::surface::IntrinsicGeometryInterface &geometry)
+computeDualCotanWeights(geometrycentral::surface::IntrinsicGeometryInterface& geometry)
 {
   using namespace geometrycentral;
   using namespace geometrycentral::surface;
 
-  SurfaceMesh &mesh = geometry.mesh;
+  SurfaceMesh& mesh = geometry.mesh;
 
   geometry.requireEdgeLengths();
   geometry.requireHalfedgeCotanWeights();
@@ -235,17 +233,17 @@ computeDualCotanWeights(geometrycentral::surface::IntrinsicGeometryInterface &ge
   return dualCotanWeights;
 }
 
-void subdivideMesh(geometrycentral::surface::VertexPositionGeometry &geometry,
-                   Eigen::MatrixXd &V,
-                   Eigen::MatrixXd &P,
-                   Eigen::MatrixXi &F,
-                   std::vector<Eigen::SparseMatrix<double>> &subdivMat,
+void subdivideMesh(geometrycentral::surface::VertexPositionGeometry& geometry,
+                   Eigen::MatrixXd& V,
+                   Eigen::MatrixXd& P,
+                   Eigen::MatrixXi& F,
+                   std::vector<Eigen::SparseMatrix<double>>& subdivMat,
                    double threshold)
 {
   using namespace geometrycentral;
   using namespace geometrycentral::surface;
 
-  SurfaceMesh &mesh = geometry.mesh;
+  SurfaceMesh& mesh = geometry.mesh;
 
   double maxEdgeLength = 0;
   geometry.requireVertexPositions();
@@ -269,7 +267,7 @@ void subdivideMesh(geometrycentral::surface::VertexPositionGeometry &geometry,
 }
 
 TinyAD::ScalarFunction<2, double, geometrycentral::surface::Vertex>
-parameterizationFunction(geometrycentral::surface::VertexPositionGeometry &geometry,
+parameterizationFunction(geometrycentral::surface::VertexPositionGeometry& geometry,
                          double wPhi,
                          double lambda1,
                          double lambda2)
@@ -277,7 +275,7 @@ parameterizationFunction(geometrycentral::surface::VertexPositionGeometry &geome
   using namespace geometrycentral;
   using namespace geometrycentral::surface;
 
-  SurfaceMesh &mesh = geometry.mesh;
+  SurfaceMesh& mesh = geometry.mesh;
 
   // precompute inverse jacobians
   FaceData<Eigen::Matrix2d> restShapes = precomputeParamData(geometry);
@@ -286,7 +284,7 @@ parameterizationFunction(geometrycentral::surface::VertexPositionGeometry &geome
   TinyAD::ScalarFunction<2, double, Vertex> func = TinyAD::scalar_function<2>(mesh.vertices());
 
   // Main objective term
-  func.add_elements<3>(mesh.faces(), [&, lambda1, lambda2, restShapes](auto &element) -> TINYAD_SCALAR_TYPE(element) {
+  func.add_elements<3>(mesh.faces(), [&, lambda1, lambda2, restShapes](auto& element) -> TINYAD_SCALAR_TYPE(element) {
     // Evaluate element using either double or TinyAD::Double
     using T = TINYAD_SCALAR_TYPE(element);
 
@@ -320,7 +318,7 @@ parameterizationFunction(geometrycentral::surface::VertexPositionGeometry &geome
   // Smoothness regularization (Dirichlet energy)
   func.add_elements<4>(
       mesh.edges(),
-      [&, lambda1, lambda2, wPhi, dualCotanWeights, restShapes](auto &element) -> TINYAD_SCALAR_TYPE(element) {
+      [&, lambda1, lambda2, wPhi, dualCotanWeights, restShapes](auto& element) -> TINYAD_SCALAR_TYPE(element) {
         // Evaluate element using either double or TinyAD::Double
         using T = TINYAD_SCALAR_TYPE(element);
 
@@ -354,4 +352,45 @@ parameterizationFunction(geometrycentral::surface::VertexPositionGeometry &geome
       });
 
   return func;
+}
+
+std::tuple<Eigen::VectorXd, Eigen::VectorXd, Eigen::VectorXd>
+computeSVDdata(const Eigen::MatrixXd& V, const Eigen::MatrixXd& P, const Eigen::MatrixXi& F)
+{
+  using namespace Eigen;
+  int nF = F.rows();
+
+  MatrixX2d plane_V;
+  MatrixX3i plane_F;
+  SparseMatrix<double> ref_map;
+  igl::project_isometrically_to_plane(V, F, plane_V, plane_F, ref_map);
+
+  VectorXd sigma1(nF), sigma2(nF), angles(nF);
+  #pragma omp parallel for schedule(static) num_threads(omp_get_max_threads() - 1)
+  for(int i = 0; i < nF; ++i)
+  {
+    Matrix2d A;
+    A.col(0) = plane_V.row(nF + i) - plane_V.row(i);
+    A.col(1) = plane_V.row(2 * nF + i) - plane_V.row(i);
+
+    Matrix2d B;
+    B.col(0) = P.row(F(i, 1)) - P.row(F(i, 0));
+    B.col(1) = P.row(F(i, 2)) - P.row(F(i, 0));
+
+    // compute SVD of the V -> P parameterization
+    JacobiSVD<Matrix2d> svd;
+    Matrix2d M = B * A.inverse();
+    svd.compute(M, ComputeFullU | ComputeFullV);
+    Matrix2d S = svd.singularValues().asDiagonal();
+
+    // save the singular values sigma1, sigma2
+    sigma1(i) = S(0, 0);
+    sigma2(i) = S(1, 1);
+
+    // compute angles from the U, V matrices
+    Vector2d stressX = svd.matrixU().col(0);
+    geometrycentral::Vector2 dir{stressX(0), stressX(1)};
+    angles(i) = dir.pow(2).arg() / 2;
+  }
+  return std::make_tuple(sigma1, sigma2, angles);
 }

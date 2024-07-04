@@ -78,8 +78,7 @@ int main(int argc, char* argv[])
 
   // Run local-global parameterization algorithm
   Timer paramTimer("Parameterization");
-  Eigen::MatrixXd P;
-  LocalGlobalSolver LGsolver = localGlobal(V, F, P, lambda1, lambda2);
+  Eigen::MatrixXd P = localGlobal(V, F, lambda1, lambda2);
   paramTimer.stop();
 
   if(wD > 0) // smoothing

@@ -1,6 +1,6 @@
 #pragma once
 
-#include <Eigen/Sparse>
+#include <Eigen/SparseCore>
 
 Eigen::SparseMatrix<double> projectionMatrix(const std::vector<int>& fixedIdx, int size);
 

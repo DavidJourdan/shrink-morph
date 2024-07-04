@@ -1,6 +1,6 @@
 #include "simulation_utils.h"
 
-#include <Eigen/Dense>
+#include <Eigen/Core>
 #include <igl/colon.h>
 #include <igl/slice.h>
 #include <igl/slice_into.h>

@@ -2,8 +2,6 @@
 
 #include "geometrycentral/surface/direction_fields.h"
 
-#include <Eigen/Sparse>
-
 using namespace geometrycentral;
 using namespace geometrycentral::surface;
 
