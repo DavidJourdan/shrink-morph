@@ -1,6 +1,5 @@
 #include "functions.h"
 
-#include "constants.h"
 #include "simulation_utils.h"
 
 #include <TinyAD/Utils/Helpers.hh>

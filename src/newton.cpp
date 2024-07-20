@@ -217,7 +217,8 @@ void sparse_gauss_newton(IntrinsicGeometryInterface& geometry,
     return -2 * H.block(V.size(), 0, th.size(), V.size()) * dir + 2 * wM * M_theta * th + 2 * wL * L * th;
   };
 
-  std::cout << "Initial energy: " << distance(theta) << std::endl;
+  double energy = distance(theta);
+  std::cout << "Initial energy: " << energy << std::endl;
 
   LUSolver solver;
 

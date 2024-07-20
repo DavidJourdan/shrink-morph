@@ -1,13 +1,14 @@
 
 #include "parameterization.h"
 
+#include "timer.h"
+
 #include <TinyAD/Utils/Helpers.hh>
 #include <igl/bfs_orient.h>
 #include <igl/boundary_loop.h>
 #include <igl/harmonic.h>
 #include <igl/loop.h>
 #include <igl/map_vertices_to_circle.h>
-#include <igl/project_isometrically_to_plane.h>
 
 Eigen::MatrixXd
 tutteEmbedding(const Eigen::MatrixXd& _V, const Eigen::MatrixXi& _F, const std::vector<int>& boundary_indices)
@@ -279,12 +280,15 @@ parameterizationFunction(geometrycentral::surface::VertexPositionGeometry& geome
 
   // precompute inverse jacobians
   FaceData<Eigen::Matrix2d> restShapes = precomputeParamData(geometry);
+  double totA = 0;
+  for(Face f : mesh.faces())
+    totA += 0.5 * restShapes[f].determinant();
 
   // Set up function with 2D vertex positions as variables.
   TinyAD::ScalarFunction<2, double, Vertex> func = TinyAD::scalar_function<2>(mesh.vertices());
 
   // Main objective term
-  func.add_elements<3>(mesh.faces(), [&, lambda1, lambda2, restShapes](auto& element) -> TINYAD_SCALAR_TYPE(element) {
+  func.add_elements<3>(mesh.faces(), [&, lambda1, lambda2, totA, restShapes](auto& element) -> TINYAD_SCALAR_TYPE(element) {
     // Evaluate element using either double or TinyAD::Double
     using T = TINYAD_SCALAR_TYPE(element);
 
@@ -309,7 +313,7 @@ parameterizationFunction(geometrycentral::surface::VertexPositionGeometry& geome
     T s0 = x + y;
     T s1 = x - y;
 
-    return 0.5 * A * (pow(s1 - 1 / lambda2, 2) + pow(s0 - 1 / lambda1, 2));
+    return 0.5 * A / totA * (pow(s1 - 1 / lambda2, 2) + pow(s0 - 1 / lambda1, 2));
   });
 
   geometry.requireFaceIndices();
@@ -360,18 +364,23 @@ computeSVDdata(const Eigen::MatrixXd& V, const Eigen::MatrixXd& P, const Eigen::
   using namespace Eigen;
   int nF = F.rows();
 
-  MatrixX2d plane_V;
-  MatrixX3i plane_F;
-  SparseMatrix<double> ref_map;
-  igl::project_isometrically_to_plane(V, F, plane_V, plane_F, ref_map);
-
   VectorXd sigma1(nF), sigma2(nF), angles(nF);
   #pragma omp parallel for schedule(static) num_threads(omp_get_max_threads() - 1)
   for(int i = 0; i < nF; ++i)
   {
+    // Get 3D vertex positions
+    Vector3d a = V.row(F(i,0));
+    Vector3d b = V.row(F(i,1));
+    Vector3d c = V.row(F(i,2));
+
+    // Set up local 2D coordinate system
+    Vector3d n = (b - a).cross(c - a);
+    Vector3d u = (b - a).normalized();
+    Vector3d v = n.cross(u).normalized();
+
     Matrix2d A;
-    A.col(0) = plane_V.row(nF + i) - plane_V.row(i);
-    A.col(1) = plane_V.row(2 * nF + i) - plane_V.row(i);
+    A.col(0) << (b - a).dot(u) , 0;
+    A.col(1) << (c - a).dot(u), (c - a).dot(v);
 
     Matrix2d B;
     B.col(0) = P.row(F(i, 1)) - P.row(F(i, 0));

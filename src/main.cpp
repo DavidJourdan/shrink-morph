@@ -35,6 +35,7 @@ int main(int argc, char* argv[])
   polyscope::view::style = polyscope::view::NavigateStyle::Planar;
   polyscope::options::groundPlaneMode = polyscope::GroundPlaneMode::ShadowOnly;
   polyscope::options::openImGuiWindowForUserCallback = false;
+  polyscope::options::giveFocusOnShow = true;
   polyscope::loadColorMap("twilight", DATA_PATH_STR "twilight_colormap.png");
 
   // Some state about imgui windows to stack them
@@ -100,7 +101,7 @@ int main(int argc, char* argv[])
   // callback function for ImGui interface
   polyscope::state::userCallback = [&]() {
     // parameters modifiable in the GUI
-    static double wD = 0.1;
+    static double wD = 1e-5;
     static double rotAngle = 0;
 
     ImGui::PushID("user_callback");
@@ -488,7 +489,7 @@ int main(int argc, char* argv[])
             }
           }
         };
-        if(ImGui::SliderInt("Layer", &lastLayer, 1, lastLayer))
+        if(ImGui::SliderInt("Layer", &lastLayer, 1, nLayers))
         {
           onChangeLayer();
         }
@@ -512,6 +513,6 @@ int main(int argc, char* argv[])
   };
 
   polyscope::view::style = polyscope::view::NavigateStyle::Turntable;
-  polyscope::view::flyToHomeView();
+  polyscope::view::resetCameraToHomeView();
   polyscope::show();
 }
