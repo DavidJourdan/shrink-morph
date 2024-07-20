@@ -110,10 +110,7 @@ int main(int argc, char* argv[])
   std::vector<int> fixedIdx = findCenterFaceIndices(P, F);
 
   // Save the input mesh DOFs
-  Eigen::VectorXd xTarget(V.size());
-  for(int i = 0; i < V.rows(); ++i)
-    for(int j = 0; j < 3; ++j)
-      xTarget(3 * i + j) = V(i, j);
+  Eigen::MatrixXd targetV = V;
 
   // Simulation
   std::cout << "**********\nSIMULATION\n**********\n";
@@ -127,13 +124,12 @@ int main(int argc, char* argv[])
   optimTimer.stop();
 
   // Display distance with target mesh
-  Eigen::MatrixXd VTarget = xTarget.reshaped<Eigen::RowMajor>(V.rows(), 3);
-  Eigen::VectorXd d = (V - VTarget).cwiseProduct((V - VTarget)).rowwise().sum();
+  Eigen::VectorXd d = (V - targetV).cwiseProduct((V - targetV)).rowwise().sum();
   d = d.array().sqrt();
   std::cout << "Avg distance = "
-            << 100 * d.sum() / d.size() / (VTarget.colwise().maxCoeff() - VTarget.colwise().minCoeff()).norm() << "\n";
+            << 100 * d.sum() / d.size() / (targetV.colwise().maxCoeff() - targetV.colwise().minCoeff()).norm() << "\n";
   std::cout << "Max distance = "
-            << 100 * d.lpNorm<Eigen::Infinity>() / (VTarget.colwise().maxCoeff() - VTarget.colwise().minCoeff()).norm()
+            << 100 * d.lpNorm<Eigen::Infinity>() / (targetV.colwise().maxCoeff() - targetV.colwise().minCoeff()).norm()
             << "\n";
 
   // Directions optimizatiom
@@ -143,17 +139,17 @@ int main(int argc, char* argv[])
   // Define optimization function
   auto adjointFunc = adjointFunction(geometry, F, MrInv, theta1, E1, lambda1, lambda2, deltaLambda, thickness);
   // Optimize this energy function using SGN [Zehnder et al. 2021]
-  sparse_gauss_newton(geometry, V, xTarget, MrInv, theta1, theta2, adjointFunc, fixedIdx, n_iter, lim, wM, wL, E1,
+  sparse_gauss_newton(geometry, targetV, MrInv, theta1, theta2, adjointFunc, fixedIdx, n_iter, lim, wM, wL, E1,
                       lambda1, lambda2, deltaLambda, thickness);
   optimTimer.stop();
 
   // Display distance with target mesh
-  d = (V - VTarget).cwiseProduct((V - VTarget)).rowwise().sum();
+  d = (V - targetV).cwiseProduct((V - targetV)).rowwise().sum();
   d = d.array().sqrt();
   std::cout << "Avg distance = "
-            << 100 * d.sum() / d.size() / (VTarget.colwise().maxCoeff() - VTarget.colwise().minCoeff()).norm() << "\n";
+            << 100 * d.sum() / d.size() / (targetV.colwise().maxCoeff() - targetV.colwise().minCoeff()).norm() << "\n";
   std::cout << "Max distance = "
-            << 100 * d.lpNorm<Eigen::Infinity>() / (VTarget.colwise().maxCoeff() - VTarget.colwise().minCoeff()).norm()
+            << 100 * d.lpNorm<Eigen::Infinity>() / (targetV.colwise().maxCoeff() - targetV.colwise().minCoeff()).norm()
             << "\n";
 
   // Generate trajectories

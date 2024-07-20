@@ -240,10 +240,7 @@ int main(int argc, char* argv[])
   std::vector<int> fixedIdx = findCenterFaceIndices(P, F);
 
   // Save the input mesh DOFs
-  Eigen::VectorXd xTarget(V.size());
-  for(int i = 0; i < V.rows(); ++i)
-    for(int j = 0; j < 3; ++j)
-      xTarget(3 * i + j) = V(i, j);
+  Eigen::MatrixXd targetV = V;
 
   // Init timers for GUI
   Timer optimTimer("Directions optimization");
@@ -285,7 +282,7 @@ int main(int argc, char* argv[])
         V *= scaleFactor;
         P *= scaleFactor;
         geometry.inputVertexPositions *= scaleFactor;
-        xTarget *= scaleFactor;
+        targetV *= scaleFactor;
         geometry.refreshQuantities();
         MrInv = precomputeSimData(mesh, P, F);
       }
@@ -295,8 +292,7 @@ int main(int argc, char* argv[])
     {
       // Load input mesh to Polyscope (not displayed by default)
       polyscope::removeAllStructures();
-      Eigen::MatrixXd VTarget = xTarget.reshaped<Eigen::RowMajor>(V.rows(), 3);
-      polyscope::registerSurfaceMesh("Input mesh", VTarget, F)->setEnabled(false);
+      polyscope::registerSurfaceMesh("Input mesh", targetV, F)->setEnabled(false);
 
       // Run the optimization in a separate thread
       thr = std::make_unique<std::thread>([&]() {
@@ -342,8 +338,7 @@ int main(int argc, char* argv[])
       polyscope::view::flyToHomeView();
 
       // Load input mesh to Polyscope (not displayed by default)
-      Eigen::MatrixXd VTarget = xTarget.reshaped<Eigen::RowMajor>(V.rows(), 3);
-      polyscope::registerSurfaceMesh("Input mesh", VTarget, F)->setEnabled(false);
+      polyscope::registerSurfaceMesh("Input mesh", targetV, F)->setEnabled(false);
 
       // Run the optimization in a separate thread
       thr = std::make_unique<std::thread>([&]() {
@@ -356,7 +351,7 @@ int main(int argc, char* argv[])
         auto adjointFunc = adjointFunction(geometry, F, MrInv, theta1, E1, lambda1, lambda2, deltaLambda, thickness);
 
         // Optimize this energy function using SGN [Zehnder et al. 2021]
-        sparse_gauss_newton(geometry, V, xTarget, MrInv, theta1, theta2, adjointFunc, fixedIdx, nIter, lim, wM, wL, E1,
+        sparse_gauss_newton(geometry, targetV, MrInv, theta1, theta2, adjointFunc, fixedIdx, nIter, lim, wM, wL, E1,
                             lambda1, lambda2, deltaLambda, thickness, [&](const Eigen::VectorXd& X) {
                               // convert X to V for visualizing individual iterations
                               for(int i = 0; i < V.rows(); ++i)
@@ -384,15 +379,14 @@ int main(int argc, char* argv[])
       polyscope::getSurfaceMesh("Simulation")->addVertexScalarQuantity("theta2", theta2);
 
       // Display distance with target mesh
-      Eigen::MatrixXd VTarget = xTarget.reshaped<Eigen::RowMajor>(V.rows(), 3);
-      Eigen::VectorXd d = (V - VTarget).cwiseProduct((V - VTarget)).rowwise().sum();
+      Eigen::VectorXd d = (V - targetV).cwiseProduct((V - targetV)).rowwise().sum();
       d = d.array().sqrt();
       std::cout << "Avg distance = "
-                << 100 * d.sum() / d.size() / (VTarget.colwise().maxCoeff() - VTarget.colwise().minCoeff()).norm()
+                << 100 * d.sum() / d.size() / (targetV.colwise().maxCoeff() - targetV.colwise().minCoeff()).norm()
                 << "\n";
       std::cout << "Max distance = "
                 << 100 * d.lpNorm<Eigen::Infinity>() /
-                       (VTarget.colwise().maxCoeff() - VTarget.colwise().minCoeff()).norm()
+                       (targetV.colwise().maxCoeff() - targetV.colwise().minCoeff()).norm()
                 << "\n";
       polyscope::getSurfaceMesh("Simulation")->addVertexScalarQuantity("Distance", d)->setEnabled(true);
     }

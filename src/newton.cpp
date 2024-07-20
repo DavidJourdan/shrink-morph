@@ -3,8 +3,8 @@
 #include "functions.h"
 #include "parameterization.h"
 #include "simulation_utils.h"
-#include "timer.h"
 #include "solvers.h"
+#include "timer.h"
 
 #include <TinyAD/Utils/NewtonDecrement.hh>
 
@@ -17,7 +17,7 @@ void newton(Eigen::VectorXd& x,
             int max_iters,
             double lim,
             bool verbose,
-            std::vector<int> fixedIdx,
+            const std::vector<int>& fixedIdx,
             const std::function<void(const Eigen::VectorXd&)>& callback)
 {
   Timer timer("Newton", !verbose);
@@ -93,7 +93,7 @@ void newton(IntrinsicGeometryInterface& geometry,
             int max_iters,
             double lim,
             bool verbose,
-            std::vector<int> fixedIdx,
+            const std::vector<int>& fixedIdx,
             const std::function<void(const Eigen::VectorXd&)>& callback)
 {
   // Assemble inital x vector
@@ -108,24 +108,24 @@ void newton(IntrinsicGeometryInterface& geometry,
   func.x_to_data(x, [&](Vertex v, const auto& row) { V.row(geometry.vertexIndices[v]) = row; });
 }
 
-void sparse_gauss_newton(IntrinsicGeometryInterface& geometry,
-                         Eigen::MatrixXd& V,
-                         const Eigen::VectorXd& xTarget,
-                         const FaceData<Eigen::Matrix2d>& MrInv,
-                         FaceData<double>& theta1,
-                         VertexData<double>& theta2,
-                         TinyAD::ScalarFunction<1, double, Eigen::Index>& adjointFunc,
-                         std::vector<int>& fixedIdx,
-                         int max_iters,
-                         double lim,
-                         double wM,
-                         double wL,
-                         double E1,
-                         double lambda1,
-                         double lambda2,
-                         double deltaLambda,
-                         double thickness,
-                         const std::function<void(const Eigen::VectorXd&)>& callback)
+Eigen::MatrixXd
+sparse_gauss_newton(IntrinsicGeometryInterface& geometry,
+                    const Eigen::MatrixXd& targetV,
+                    const FaceData<Eigen::Matrix2d>& MrInv,
+                    const FaceData<double>& theta1,
+                    VertexData<double>& theta2,
+                    const TinyAD::ScalarFunction<1, double, Eigen::Index>& adjointFunc,
+                    const std::vector<int>& fixedIdx,
+                    int max_iters,
+                    double lim,
+                    double wM,
+                    double wL,
+                    double E1,
+                    double lambda1,
+                    double lambda2,
+                    double deltaLambda,
+                    double thickness,
+                    const std::function<void(const Eigen::VectorXd&)>& callback)
 {
   geometry.requireCotanLaplacian();
   geometry.requireVertexLumpedMassMatrix();
@@ -135,7 +135,7 @@ void sparse_gauss_newton(IntrinsicGeometryInterface& geometry,
   SurfaceMesh& mesh = geometry.mesh;
 
   // build vector of Voronoi areas for the distance metric
-  Eigen::VectorXd masses = Eigen::VectorXd::Zero(V.size());
+  Eigen::VectorXd masses = Eigen::VectorXd::Zero(targetV.size());
 
   // divide M by the total mesh area
   double totalArea = 0;
@@ -154,12 +154,16 @@ void sparse_gauss_newton(IntrinsicGeometryInterface& geometry,
   Eigen::SparseMatrix<double> L = geometry.cotanLaplacian;
 
   // Mass matrix theta
-  Eigen::SparseMatrix<double> M_theta(V.rows(), V.rows());
-  M_theta.reserve(V.rows());
-  for(int i = 0; i < V.rows(); ++i)
+  Eigen::SparseMatrix<double> M_theta(targetV.rows(), targetV.rows());
+  M_theta.reserve(targetV.rows());
+  for(int i = 0; i < targetV.rows(); ++i)
     M_theta.insert(i, i) = totalArea * masses(3 * i);
 
   Eigen::VectorXd theta = theta2.toVector();
+  Eigen::VectorXd xTarget(targetV.size());
+  for(int i = 0; i < targetV.rows(); ++i)
+    for(int j = 0; j < 3; ++j)
+      xTarget(3 * i + j) = targetV(i, j);
   Eigen::VectorXd x = xTarget;
 
   LLTSolver adjointSolver;
@@ -176,8 +180,8 @@ void sparse_gauss_newton(IntrinsicGeometryInterface& geometry,
   Eigen::SparseMatrix<double> P = projectionMatrix(fixedIdx, x.size());
 
   // Hessian matrix H
-  Eigen::VectorXd X(V.size() + theta.size());
-  X.head(V.size()) = x;
+  Eigen::VectorXd X(targetV.size() + theta.size());
+  X.head(targetV.size()) = x;
   X.tail(theta.size()) = theta;
   Eigen::SparseMatrix<double> H = adjointFunc.eval_hessian(X);
 
@@ -185,21 +189,21 @@ void sparse_gauss_newton(IntrinsicGeometryInterface& geometry,
   Eigen::SparseMatrix<double> HGN = buildHGN(2 * masses, P, 2 * wM * M_theta + 2 * wL * L, H);
 
   auto distanceGrad = [&](const Eigen::VectorXd& th) -> Eigen::VectorXd {
-    Eigen::VectorXd X(V.size() + th.size());
-    X.head(V.size()) = x;
+    Eigen::VectorXd X(targetV.size() + th.size());
+    X.head(targetV.size()) = x;
     X.tail(th.size()) = th;
     H = adjointFunc.eval_hessian(X);
 
-    for(int j = 0; j < V.size(); ++j)
+    for(int j = 0; j < targetV.size(); ++j)
       H.coeffRef(j, j) += 1e-10;
 
-    Eigen::SparseMatrix<double> A = (P * H.block(0, 0, V.size(), V.size()) * P.transpose()).eval();
+    Eigen::SparseMatrix<double> A = (P * H.block(0, 0, targetV.size(), targetV.size()) * P.transpose()).eval();
 
     adjointSolver.factorize(A);
     if(adjointSolver.info() != Eigen::Success)
     {
       auto [f, g, A_proj] = adjointFunc.eval_with_hessian_proj(X);
-      A_proj = (P * A_proj.block(0, 0, V.size(), V.size()) * P.transpose()).eval();
+      A_proj = (P * A_proj.block(0, 0, targetV.size(), targetV.size()) * P.transpose()).eval();
 
       A = 0.9 * A + 0.1 * A_proj;
       adjointSolver.factorize(A);
@@ -214,7 +218,7 @@ void sparse_gauss_newton(IntrinsicGeometryInterface& geometry,
 
     dir = P.transpose() * dir;
 
-    return -2 * H.block(V.size(), 0, th.size(), V.size()) * dir + 2 * wM * M_theta * th + 2 * wL * L * th;
+    return -2 * H.block(targetV.size(), 0, th.size(), targetV.size()) * dir + 2 * wM * M_theta * th + 2 * wL * L * th;
   };
 
   double energy = distance(theta);
@@ -242,7 +246,7 @@ void sparse_gauss_newton(IntrinsicGeometryInterface& geometry,
     if(solver.info() != Eigen::Success)
     {
       std::cout << "Solver error\n";
-      return;
+      return targetV;
     }
 
     Eigen::VectorXd d = solver.solve(b);
@@ -271,10 +275,13 @@ void sparse_gauss_newton(IntrinsicGeometryInterface& geometry,
 
   std::cout << "Final energy: " << distance(theta) << "\n";
 
-  for(int i = 0; i < V.rows(); ++i)
+  Eigen::MatrixXd V(targetV.rows(), 3);
+  for(int i = 0; i < targetV.rows(); ++i)
     for(int j = 0; j < 3; ++j)
       V(i, j) = x(3 * i + j);
+
   theta2.fromVector(theta);
+  return V;
 }
 
 template void newton<>(IntrinsicGeometryInterface&,
@@ -283,7 +290,7 @@ template void newton<>(IntrinsicGeometryInterface&,
                        int,
                        double,
                        bool,
-                       std::vector<int>,
+                       const std::vector<int>&,
                        const std::function<void(const Eigen::VectorXd&)>&);
 
 template void newton<>(IntrinsicGeometryInterface&,
@@ -292,5 +299,5 @@ template void newton<>(IntrinsicGeometryInterface&,
                        int,
                        double,
                        bool,
-                       std::vector<int>,
+                       const std::vector<int>&,
                        const std::function<void(const Eigen::VectorXd&)>&);

@@ -7,8 +7,8 @@
 TinyAD::ScalarFunction<3, double, geometrycentral::surface::VertexRangeF::Etype>
 simulationFunction(geometrycentral::surface::IntrinsicGeometryInterface& geometry,
                    const geometrycentral::surface::FaceData<Eigen::Matrix2d>& MrInv,
-                   geometrycentral::surface::FaceData<double>& theta1,
-                   geometrycentral::surface::VertexData<double>& theta2,
+                   const geometrycentral::surface::FaceData<double>& theta1,
+                   const geometrycentral::surface::VertexData<double>& theta2,
                    double E1,
                    double lambda1,
                    double lambda2,

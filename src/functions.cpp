@@ -8,8 +8,8 @@ using namespace geometrycentral::surface;
 
 TinyAD::ScalarFunction<3, double, Vertex> simulationFunction(IntrinsicGeometryInterface& geometry,
                                                              const FaceData<Eigen::Matrix2d>& MrInv,
-                                                             FaceData<double>& theta1,
-                                                             VertexData<double>& theta2,
+                                                             const FaceData<double>& theta1,
+                                                             const VertexData<double>& theta2,
                                                              double E1,
                                                              double lambda1,
                                                              double lambda2,
