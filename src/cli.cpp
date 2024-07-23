@@ -77,20 +77,7 @@ int main(int argc, char* argv[])
   VertexPositionGeometry geometry(mesh, V);
 
   // Run local-global parameterization algorithm
-  Timer paramTimer("Parameterization");
-  Eigen::MatrixXd P = localGlobal(V, F, lambda1, lambda2);
-  paramTimer.stop();
-
-  if(wD > 0) // smoothing
-  {
-    std::cout << "*********\nSMOOTHING\n*********\n";
-    paramTimer.start();
-    auto func = parameterizationFunction(geometry, wD, lambda1, lambda2);
-
-    // optimize the parameterization function with Newton's method
-    newton(geometry, P, func, n_iter, lim);
-    paramTimer.stop();
-  }
+  Eigen::MatrixXd P = parameterization(V, F, lambda1, lambda2, wD);
 
   // Resize to required width
   const double scaleFactor = width / (P.colwise().maxCoeff() - P.colwise().minCoeff()).maxCoeff();

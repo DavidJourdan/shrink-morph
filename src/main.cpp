@@ -83,7 +83,7 @@ int main(int argc, char* argv[])
   // Run local-global parameterization algorithm
   Timer paramTimer("Parameterization");
 
-  Eigen::MatrixXd P = localGlobal(V, F, lambda1, lambda2);
+  Eigen::MatrixXd P = parameterization(V, F, lambda1, lambda2);
   paramTimer.stop();
 
   const auto &[sigma1, sigma2, angles] = computeSVDdata(V, P, F);

@@ -11,7 +11,22 @@
 #include <geometrycentral/surface/manifold_surface_mesh.h>
 #include <geometrycentral/surface/vertex_position_geometry.h>
 
-Eigen::MatrixXd localGlobal(const Eigen::MatrixXd& V, const Eigen::MatrixXi& F, double lambda1, double lambda2);
+Eigen::MatrixXd parameterization(const Eigen::MatrixXd& V,
+                                 Eigen::MatrixXi& F,
+                                 double lambda1,
+                                 double lambda2,
+                                 double wD = 0,
+                                 int n_iter = 1000,
+                                 double lim = 1e-6);
+
+void parameterization(const Eigen::MatrixXd& V,
+                      Eigen::MatrixXd& P,
+                      const Eigen::MatrixXi& F,
+                      double lambda1,
+                      double lambda2,
+                      double wD,
+                      int n_iter,
+                      double lim);
 
 geometrycentral::surface::FaceData<Eigen::Matrix2d>
 precomputeParamData(geometrycentral::surface::VertexPositionGeometry& geometry);

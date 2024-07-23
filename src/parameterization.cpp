@@ -1,6 +1,7 @@
 
 #include "parameterization.h"
 
+#include "newton.h"
 #include "timer.h"
 
 #include <TinyAD/Utils/Helpers.hh>
@@ -10,19 +11,17 @@
 #include <igl/loop.h>
 #include <igl/map_vertices_to_circle.h>
 
-Eigen::MatrixXd
-tutteEmbedding(const Eigen::MatrixXd& _V, const Eigen::MatrixXi& _F, const std::vector<int>& boundary_indices)
+Eigen::MatrixXd tutteEmbedding(const Eigen::MatrixXd& V, Eigen::MatrixXi& F, const std::vector<int>& boundary_indices)
 {
   Eigen::VectorXi b;  // #constr boundary constraint indices
   Eigen::MatrixXd bc; // #constr-by-2 2D boundary constraint positions
   Eigen::MatrixXd P;  // #V-by-2 2D vertex positions
-  Eigen::MatrixXi F = _F;
 
   // Set boundary vertex positions
   b.resize(boundary_indices.size(), 1);
   for(size_t i = 0; i < boundary_indices.size(); ++i)
     b(i) = boundary_indices[i];
-  igl::map_vertices_to_circle(_V, b, bc);
+  igl::map_vertices_to_circle(V, b, bc);
 
   // make sure normals are consistent
   Eigen::VectorXi C;
@@ -34,15 +33,11 @@ tutteEmbedding(const Eigen::MatrixXd& _V, const Eigen::MatrixXi& _F, const std::
   return P;
 }
 
-Eigen::MatrixXd localGlobal(const Eigen::MatrixXd& V, const Eigen::MatrixXi& F, double lambda1, double lambda2)
+std::vector<int> fillInHoles(const Eigen::MatrixXd& V, Eigen::MatrixXi& F)
 {
-  using namespace Eigen;
-
-  Eigen::MatrixXi _F = F;
-
   // Identify boundary loops
   std::vector<std::vector<int>> loops;
-  igl::boundary_loop(_F, loops);
+  igl::boundary_loop(F, loops);
 
   // find longest boundary loop
   size_t idxMax = -1;
@@ -65,18 +60,19 @@ Eigen::MatrixXd localGlobal(const Eigen::MatrixXd& V, const Eigen::MatrixXi& F, 
     if(i != idxMax)
     {
       int nB = loops[i].size();
-      int nF = _F.rows();
-      _F.conservativeResize(nF + nB - 2, 3);
+      int nFi = F.rows();
+      F.conservativeResize(nFi + nB - 2, 3);
       for(int j = 0; j < nB - 2; ++j)
-        _F.row(nF + j) << loops[i][0], loops[i][j + 1], loops[i][j + 2];
+        F.row(nFi + j) << loops[i][0], loops[i][j + 1], loops[i][j + 2];
     }
 
-  LocalGlobalSolver solver(V, _F);
+  return loops[idxMax];
+}
 
-  MatrixXd P = tutteEmbedding(V, F, loops[idxMax]);
-
-  // run ARAP
-  solver.solve(P, 1., 1.);
+// center and rotate vertex positions P to be aligned with V
+void centerAndRotate(const Eigen::MatrixXd& V, Eigen::MatrixXd& P)
+{
+  using namespace Eigen;
 
   // find vertex closest to the X axis in the input mesh
   RowVector3d center3D = V.colwise().sum() / V.rows();
@@ -102,26 +98,76 @@ Eigen::MatrixXd localGlobal(const Eigen::MatrixXd& V, const Eigen::MatrixXi& F, 
   R(1, 1) = R(0, 0);
   R(0, 1) = -R(1, 0);
   P = P * R;
+}
+
+void parameterization(const Eigen::MatrixXd& V,
+                      Eigen::MatrixXd& P,
+                      const Eigen::MatrixXi& F,
+                      double lambda1,
+                      double lambda2,
+                      double wD,
+                      int n_iter,
+                      double lim)
+{
+  using namespace geometrycentral;
+  using namespace geometrycentral::surface;
+
+  LocalGlobalSolver solver(V, F);
+
+  // run Local-Global algorithm
+  solver.solve(P, 1 / lambda2, 1 / lambda1);
+
+  // // Repeat center and rotate operations
+  // centerAndRotate(V, P);
+
+  if(wD > 0) // smoothing
+  {
+    std::cout << "*********\nSMOOTHING\n*********\n";
+
+    // create geometry-central objects
+    ManifoldSurfaceMesh mesh(F);
+    VertexPositionGeometry geometry(mesh, V);
+    auto func = parameterizationFunction(geometry, wD, lambda1, lambda2);
+
+    // optimize the parameterization function with Newton's method
+    newton(geometry, P, func, n_iter, lim);
+  }
+}
+
+Eigen::MatrixXd parameterization(const Eigen::MatrixXd& V,
+                                 Eigen::MatrixXi& F,
+                                 double lambda1,
+                                 double lambda2,
+                                 double wD,
+                                 int n_iter,
+                                 double lim)
+{
+  using namespace Eigen;
+  Timer paramTimer("Parameterization");
+
+  // Eigen::MatrixXi _F = F;
+  int nF = F.rows();
+
+  std::vector<int> boundaryIndices = fillInHoles(V, F);
+
+  // Initialize P
+  MatrixXd P = tutteEmbedding(V, F, boundaryIndices);
+
+  // run ARAP
+  LocalGlobalSolver solver(V, F);
+  solver.solve(P, 1., 1.);
+
+  // center and rotate vertex positions P to be aligned with V
+  centerAndRotate(V, P);
 
   // change aspect ratio
   P.col(0) /= lambda1;
   P.col(1) /= lambda2;
 
-  // run Local-Global algorithm
-  solver.solve(P, 1 / lambda2, 1 / lambda1);
+  // restore F with holes
+  F.conservativeResize(nF, 3);
 
-  // Repeat center and rotate operations
-  center2D = P.colwise().sum() / P.rows();
-  P.rowwise() -= center2D;
-
-  R.col(0) = P.row(maxIdx).normalized();
-  R(1, 1) = R(0, 0);
-  R(0, 1) = -R(1, 0);
-  P = P * R;
-
-  // reinit with original topology
-  solver.init(V, F);
-  solver.solveOneStep(P, 1 / lambda2, 1 / lambda1);
+  parameterization(V, P, F, lambda1, lambda2, wD, n_iter, lim);
   return P;
 }
 
@@ -281,40 +327,41 @@ parameterizationFunction(geometrycentral::surface::VertexPositionGeometry& geome
   // precompute inverse jacobians
   FaceData<Eigen::Matrix2d> restShapes = precomputeParamData(geometry);
   double totA = 0;
-  for(Face f : mesh.faces())
+  for(Face f: mesh.faces())
     totA += 0.5 * restShapes[f].determinant();
 
   // Set up function with 2D vertex positions as variables.
   TinyAD::ScalarFunction<2, double, Vertex> func = TinyAD::scalar_function<2>(mesh.vertices());
 
   // Main objective term
-  func.add_elements<3>(mesh.faces(), [&, lambda1, lambda2, totA, restShapes](auto& element) -> TINYAD_SCALAR_TYPE(element) {
-    // Evaluate element using either double or TinyAD::Double
-    using T = TINYAD_SCALAR_TYPE(element);
+  func.add_elements<3>(mesh.faces(),
+                       [&, lambda1, lambda2, totA, restShapes](auto& element) -> TINYAD_SCALAR_TYPE(element) {
+                         // Evaluate element using either double or TinyAD::Double
+                         using T = TINYAD_SCALAR_TYPE(element);
 
-    // Get variable 2D vertex positions
-    Face f = element.handle;
-    Eigen::Vector2<T> a = element.variables(f.halfedge().vertex());
-    Eigen::Vector2<T> b = element.variables(f.halfedge().next().vertex());
-    Eigen::Vector2<T> c = element.variables(f.halfedge().next().next().vertex());
+                         // Get variable 2D vertex positions
+                         Face f = element.handle;
+                         Eigen::Vector2<T> a = element.variables(f.halfedge().vertex());
+                         Eigen::Vector2<T> b = element.variables(f.halfedge().next().vertex());
+                         Eigen::Vector2<T> c = element.variables(f.halfedge().next().next().vertex());
 
-    Eigen::Matrix2<T> M = TinyAD::col_mat(b - a, c - a);
+                         Eigen::Matrix2<T> M = TinyAD::col_mat(b - a, c - a);
 
-    // Get constant 2D rest shape of f
-    Eigen::Matrix2d Mr = restShapes[f];
-    double A = 0.5 * Mr.determinant();
+                         // Get constant 2D rest shape of f
+                         Eigen::Matrix2d Mr = restShapes[f];
+                         double A = 0.5 * Mr.determinant();
 
-    // Compute symmetric Dirichlet energy
-    Eigen::Matrix2<T> J = M * Mr.inverse();
+                         // Compute symmetric Dirichlet energy
+                         Eigen::Matrix2<T> J = M * Mr.inverse();
 
-    T x = hypot(J(0, 0) + J(1, 1), J(0, 1) - J(1, 0)) / 2;
-    T y = hypot(J(0, 1) + J(1, 0), J(0, 0) - J(1, 1)) / 2;
+                         T x = hypot(J(0, 0) + J(1, 1), J(0, 1) - J(1, 0)) / 2;
+                         T y = hypot(J(0, 1) + J(1, 0), J(0, 0) - J(1, 1)) / 2;
 
-    T s0 = x + y;
-    T s1 = x - y;
+                         T s0 = x + y;
+                         T s1 = x - y;
 
-    return 0.5 * A / totA * (pow(s1 - 1 / lambda2, 2) + pow(s0 - 1 / lambda1, 2));
-  });
+                         return 0.5 * A / totA * (pow(s1 - 1 / lambda2, 2) + pow(s0 - 1 / lambda1, 2));
+                       });
 
   geometry.requireFaceIndices();
   // compute dual halfedge cotan weigths
@@ -365,13 +412,13 @@ computeSVDdata(const Eigen::MatrixXd& V, const Eigen::MatrixXd& P, const Eigen::
   int nF = F.rows();
 
   VectorXd sigma1(nF), sigma2(nF), angles(nF);
-  #pragma omp parallel for schedule(static) num_threads(omp_get_max_threads() - 1)
+#pragma omp parallel for schedule(static) num_threads(omp_get_max_threads() - 1)
   for(int i = 0; i < nF; ++i)
   {
     // Get 3D vertex positions
-    Vector3d a = V.row(F(i,0));
-    Vector3d b = V.row(F(i,1));
-    Vector3d c = V.row(F(i,2));
+    Vector3d a = V.row(F(i, 0));
+    Vector3d b = V.row(F(i, 1));
+    Vector3d c = V.row(F(i, 2));
 
     // Set up local 2D coordinate system
     Vector3d n = (b - a).cross(c - a);
@@ -379,7 +426,7 @@ computeSVDdata(const Eigen::MatrixXd& V, const Eigen::MatrixXd& P, const Eigen::
     Vector3d v = n.cross(u).normalized();
 
     Matrix2d A;
-    A.col(0) << (b - a).dot(u) , 0;
+    A.col(0) << (b - a).dot(u), 0;
     A.col(1) << (c - a).dot(u), (c - a).dot(v);
 
     Matrix2d B;
