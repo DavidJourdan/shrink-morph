@@ -10,7 +10,7 @@ using LUSolver = Eigen::PardisoLU<Eigen::SparseMatrix<double>>;
 #include <Eigen/CholmodSupport>
 #include <Eigen/UmfPackSupport>
 using LDLTSolver = Eigen::CholmodSimplicialLDLT<Eigen::SparseMatrix<double>>;
-using LLTSolver = Eigen::CholmodSupernodalLLT<Eigen::SparseMatrix<double>>;
+using LLTSolver = Eigen::CholmodSimplicialLLT<Eigen::SparseMatrix<double>>;
 using LUSolver = Eigen::UmfPackLU<Eigen::SparseMatrix<double>>;
 #else
 #include<Eigen/SparseCholesky>
