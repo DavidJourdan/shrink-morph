@@ -1,8 +1,8 @@
 #include "generate_trajectories.h"
+
 #include "parameterization.h"
 #include "path_extraction.h"
 #include "stretch_angles.h"
-
 
 #include <polyscope/curve_network.h>
 #include <polyscope/polyscope.h>
@@ -10,16 +10,16 @@
 using namespace geometrycentral;
 using namespace geometrycentral::surface;
 
-void stripePattern(VertexPositionGeometry& geometry,
-                   const Eigen::MatrixXd& _V,
-                   const Eigen::MatrixXd& _P,
-                   const Eigen::MatrixXi& _F,
-                   VertexData<double>& vTheta2,
-                   std::string filename,
-                   double timeLimit,
-                   double layerHeight,
-                   double spacing,
-                   int nLayers)
+void generateTrajectories(VertexPositionGeometry& geometry,
+                          const Eigen::MatrixXd& _V,
+                          const Eigen::MatrixXd& _P,
+                          const Eigen::MatrixXi& _F,
+                          VertexData<double>& vTheta2,
+                          std::string filename,
+                          double timeLimit,
+                          double layerHeight,
+                          double spacing,
+                          int nLayers)
 {
   Eigen::MatrixXd V = _V;
   Eigen::MatrixXd P = _P;
@@ -105,7 +105,6 @@ void stripePattern(VertexPositionGeometry& geometry,
     drawPathsAndTravels(paths[i], spacing, i + 1);
   }
 }
-
 
 void drawPathsAndTravels(const std::vector<std::vector<Vector3>>& polylines, double spacing, int id)
 {

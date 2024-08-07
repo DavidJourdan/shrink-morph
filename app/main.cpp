@@ -420,7 +420,7 @@ int main(int argc, char* argv[])
 
       trajTimer.start();
       trajectoriesRun = true;
-      stripePattern(geometry, V, P, F, theta2, filename, timeLimit, 0.08, 0.4, nLayers);
+      generateTrajectories(geometry, V, P, F, theta2, filename, timeLimit, 0.08, 0.4, nLayers);
       trajTimer.stop();
     }
     ImGui::SameLine();
