@@ -7,11 +7,10 @@ if(${BUILD_GUI})
   # polyscope
   FetchContent_Declare(polyscope
     URL https://github.com/DavidJourdan/polyscope/releases/download/v2.2.1/src.zip
-    SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/deps/polyscope-src"
-    BINARY_DIR "${CMAKE_CURRENT_SOURCE_DIR}/deps/polyscope-build"
+    SOURCE_DIR "${SHRINK_MORPH_ROOT}/deps/polyscope-src"
+    BINARY_DIR "${SHRINK_MORPH_ROOT}/deps/polyscope-build"
   )
   FetchContent_MakeAvailable(polyscope)
-
 
   add_executable(shrink_morph_app  main.cpp save.cpp generate_trajectories.cpp)
   target_link_libraries(shrink_morph_app shrink_morph polyscope nlohmann_json::nlohmann_json)

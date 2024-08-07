@@ -12,4 +12,11 @@ set(SHRINK_MORPH_LIBRARY "${SHRINK_MORPH_ROOT}/lib")
 list(APPEND CMAKE_MODULE_PATH "${SHRINK_MORPH_ROOT}/cmake") 
 
 add_subdirectory(lib)
-add_subdirectory(app)
+
+option(PYTHON_APP ON)
+
+if(${PYTHON_BINDINGS})
+  add_subdirectory(python)
+else(${PYTHON_BINDINGS})
+  add_subdirectory(app)
+endif(${PYTHON_BINDINGS})

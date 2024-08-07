@@ -1,3 +1,3 @@
 [submodule "togcode"]
-	path = togcode
+	path = python/togcode
 	url = https://github.com/DavidJourdan/togcode

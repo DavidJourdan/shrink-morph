@@ -117,8 +117,8 @@ void parameterization(const Eigen::MatrixXd& V,
   // run Local-Global algorithm
   solver.solve(P, 1 / lambda2, 1 / lambda1);
 
-  // // Repeat center and rotate operations
-  // centerAndRotate(V, P);
+  // Repeat center and rotate operations
+  centerAndRotate(V, P);
 
   if(wD > 0) // smoothing
   {

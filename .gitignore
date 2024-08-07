@@ -6,3 +6,4 @@ build/
 *.path
 .DS_Store
 deps
+*.cpython*

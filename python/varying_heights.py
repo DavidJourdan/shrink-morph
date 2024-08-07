@@ -1,4 +1,4 @@
-length = 150
+length = 80
 width = 20
 nb_layers = 10
 layer_height = 0.08
@@ -7,7 +7,7 @@ jump_x = 0
 shift_y = 2 * jump_y
 shift_x = 0
 
-with  open("sample.path", "w") as file:
+with open("sample.path", "w") as file:
     nb_layers = 9
     layer_height = 0.08
     for j in range(5):

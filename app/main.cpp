@@ -4,8 +4,8 @@
  */
 #include "LocalGlobalSolver.h"
 #include "functions.h"
-#include "newton.h"
 #include "generate_trajectories.h"
+#include "newton.h"
 #include "parameterization.h"
 #include "path_extraction.h"
 #include "save.h"
@@ -90,7 +90,7 @@ int main(int argc, char* argv[])
   std::tie(sigma1, sigma2, angles) = computeSVDdata(V, P, F);
 
   // Add mesh and initial param to polyscope viewer
-  polyscope::registerSurfaceMesh2D("Param", P, F)->setEdgeWidth(0.0);
+  polyscope::registerSurfaceMesh2D("Param", P, F)->setEdgeWidth(0.0)->setMaterial("flat");
   polyscope::getSurfaceMesh("Param")->addFaceScalarQuantity("sigma1", sigma1);
   polyscope::getSurfaceMesh("Param")->addFaceScalarQuantity("sigma2", sigma2);
   polyscope::getSurfaceMesh("Param")
