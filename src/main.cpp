@@ -3,7 +3,6 @@
  * Author: Patrick Schmidt
  */
 #include "LocalGlobalSolver.h"
-#include "constants.h"
 #include "functions.h"
 #include "newton.h"
 #include "parameterization.h"
