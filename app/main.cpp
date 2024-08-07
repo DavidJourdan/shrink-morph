@@ -5,6 +5,7 @@
 #include "LocalGlobalSolver.h"
 #include "functions.h"
 #include "newton.h"
+#include "generate_trajectories.h"
 #include "parameterization.h"
 #include "path_extraction.h"
 #include "save.h"
@@ -85,7 +86,8 @@ int main(int argc, char* argv[])
   Eigen::MatrixXd P = parameterization(V, F, lambda1, lambda2);
   paramTimer.stop();
 
-  const auto &[sigma1, sigma2, angles] = computeSVDdata(V, P, F);
+  Eigen::VectorXd sigma1, sigma2, angles;
+  std::tie(sigma1, sigma2, angles) = computeSVDdata(V, P, F);
 
   // Add mesh and initial param to polyscope viewer
   polyscope::registerSurfaceMesh2D("Param", P, F)->setEdgeWidth(0.0);
@@ -111,7 +113,21 @@ int main(int argc, char* argv[])
     ImGui::Begin("Command UI", nullptr);
 
     ImGui::PushItemWidth(100);
+    // if(ImGui::Button("Curl-free parameterization"))
+    // {
+    //   FaceData<double> theta1 = computeStretchAngles(mesh, V, P, F);
+    //   Eigen::MatrixXd param = curlFreeParameterization(P, F, theta1.toVector());
+    //   polyscope::getSurfaceMesh("Param")->addVertexParameterizationQuantity("curl-free param", param);
 
+    //   FaceData<Vector3> vectorField(mesh);
+    //   for(int i = 0; i < F.rows(); ++i)
+    //   {
+    //     vectorField[i] = {cos(theta1[i]), sin(theta1[i]), 0};
+    //   }
+
+    //   polyscope::getSurfaceMesh("Param")->addFaceVectorQuantity("angles", vectorField);
+    //   polyscope::getSurfaceMesh("Param")->addVertexScalarQuantity("order", param.col(1));
+    // }
     if(ImGui::Button("Smoothing"))
     {
       paramTimer.start();
@@ -125,7 +141,7 @@ int main(int argc, char* argv[])
       polyscope::getSurfaceMesh("Param")->updateVertexPositions2D(P);
 
       // compute data from SVDs and display them
-      const auto &[sigma1, sigma2, angles] = computeSVDdata(V, P, F);
+      const auto& [sigma1, sigma2, angles] = computeSVDdata(V, P, F);
 
       polyscope::getSurfaceMesh("Param")->addFaceScalarQuantity("sigma1", sigma1);
       polyscope::getSurfaceMesh("Param")->addFaceScalarQuantity("sigma2", sigma2);

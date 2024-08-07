@@ -137,7 +137,7 @@ int main(int argc, char* argv[])
   std::cout << "Max distance = "
             << 100 * d.lpNorm<Eigen::Infinity>() / (targetV.colwise().maxCoeff() - targetV.colwise().minCoeff()).norm()
             << "\n";
-
+ 
   // Generate trajectories
   std::cout << "************\nTRAJECTORIES\n************\n";
 

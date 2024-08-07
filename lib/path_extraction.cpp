@@ -1,8 +1,7 @@
 #include "path_extraction.h"
 
-#include "parameterization.h"
-#include "solvers.h"
-#include "stretch_angles.h"
+// #include "parameterization.h"
+// #include "stretch_angles.h"
 #include "stripe_patterns.h"
 #include "timer.h"
 
@@ -11,8 +10,6 @@
 #include <geometrycentral/surface/manifold_surface_mesh.h>
 #include <igl/boundary_loop.h>
 #include <igl/ramer_douglas_peucker.h>
-#include <polyscope/curve_network.h>
-#include <polyscope/polyscope.h>
 
 #ifdef USE_ORTOOLS
 #include <ortools/constraint_solver/routing.h>
@@ -77,10 +74,10 @@ std::vector<int64_t> computeReordering(const std::vector<Vector3>& endPoints, do
   return result;
 }
 #else
-std::vector<int> greedyIndexing(const std::vector<Vector3>& endPoints, EmbeddedGeometryInterface& geometry)
+std::vector<int> greedyIndexing(const std::vector<Vector3>& endPoints)
 {
   // find closest end-point to home
-  Vector3 homePos = {-80, -80};
+  Vector3 homePos = {-150, -150};
   double minDist = std::numeric_limits<double>::max();
   int minIdx;
   for(int j = 0; j < endPoints.size(); ++j)
@@ -136,8 +133,7 @@ std::vector<int> greedyIndexing(const std::vector<Vector3>& endPoints, EmbeddedG
 #endif
 } // namespace
 
-std::vector<std::vector<Vector3>>
-orderPolylines(const std::vector<std::vector<Vector3>>& isolines, EmbeddedGeometryInterface& geometry, double timeLimit)
+std::vector<std::vector<Vector3>> orderPolylines(const std::vector<std::vector<Vector3>>& isolines, double timeLimit)
 {
 #ifdef USE_ORTOOLS
   // build list of isoline end-points, enumerated twice (one for each direction)
@@ -163,27 +159,65 @@ orderPolylines(const std::vector<std::vector<Vector3>>& isolines, EmbeddedGeomet
     endPoints[2 * i + 1] = isolines[i][isolines[i].size() - 1];
   }
 
-  std::vector<int> indices = greedyIndexing(endPoints, geometry);
+  std::vector<int> indices = greedyIndexing(endPoints);
 #endif
   // assemble final polyline list
-  std::vector<std::vector<Vector3>> polylines(isolines.size());
+  // std::vector<std::vector<Vector3>> polylines(isolines.size());
+  // for(size_t i = 0; i < isolines.size(); ++i)
+  // {
+  //   auto isoline = isolines[indices[i] / 2];
+
+  //   if(indices[i] % 2 == 0)
+  //   {
+  //     polylines[i] = isoline;
+  //   }
+  //   else // enumerate vertices from last to first
+  //   {
+  //     polylines[i].reserve(isoline.size());
+  //     for(int j = isoline.size() - 1; j >= 0; --j)
+  //     {
+  //       polylines[i].push_back(isoline[j]);
+  //     }
+  //   }
+  // }
+  std::vector<std::vector<Vector3>> polylines;
   for(size_t i = 0; i < isolines.size(); ++i)
   {
-    auto isoline = isolines.at(indices[i] / 2);
-
-    if(indices[i] % 2 == 0)
-    {
-      polylines[i] = isoline;
+    int n = isolines[indices[i] / 2].size();
+    auto previous = [&](int i) {
+      if(indices[i - 1] % 2 == 0)
+        return indices[i - 1] + 1;
+      else
+        return indices[i - 1] - 1;
+    };
+    if(i > 0 && norm(endPoints[previous(i)] - endPoints[indices[i]]) < 2)
+    { // append to previous isoline
+      if(indices[i] % 2 == 0)
+        for(int j = 0; j < n; ++j)
+          polylines[polylines.size() - 1].push_back(isolines[indices[i] / 2][j]);
+      else
+        for(int j = n - 1; j >= 0; --j)
+          polylines[polylines.size() - 1].push_back(isolines[indices[i] / 2][j]);
     }
-    else // enumerate vertices from last to first
-    {
-      polylines[i].reserve(isoline.size());
-      for(int j = isoline.size() - 1; j >= 0; --j)
+    else
+    { // create new isoline
+      if(indices[i] % 2 == 0)
       {
-        polylines[i].push_back(isoline[j]);
+        polylines.push_back(isolines[indices[i] / 2]);
+      }
+      else // enumerate vertices from last to first
+      {
+        std::vector<Vector3> isoline;
+        isoline.reserve(n);
+        for(int j = n - 1; j >= 0; --j)
+        {
+          isoline.push_back(isolines[indices[i] / 2][j]);
+        }
+        polylines.push_back(isoline);
       }
     }
   }
+  // std::cout << isolines.size() << " " << polylines.size() << "\n";
 
   return polylines;
 }
@@ -222,111 +256,6 @@ void writePaths(const std::string& filename, const std::vector<std::vector<Vecto
     s << path.size() << "\n";
     for(Vector3 p: path)
       s << p.x << " " << p.y << " " << height << "\n";
-  }
-}
-
-void drawPathsAndTravels(const std::vector<std::vector<Vector3>>& polylines, double spacing, int id)
-{
-  std::vector<Vector3> nodes;
-  std::vector<std::array<size_t, 2>> edges;
-  std::vector<double> colors;
-
-  double c = 0;
-  size_t k = 0;
-  for(auto& polyline: polylines)
-  {
-    nodes.insert(nodes.end(), polyline.begin(), polyline.end());
-    colors.insert(colors.end(), polyline.size() - 1, c);
-    c += 1;
-
-    for(size_t j = 0; j < polyline.size() - 1; ++j)
-    {
-      edges.push_back({k + j, k + j + 1});
-    }
-    k += polyline.size();
-  }
-
-  std::vector<Vector3> nodes2;
-  std::vector<std::array<size_t, 2>> edges2;
-  double distance = 0;
-  for(size_t i = 0; i < polylines.size() - 1; ++i)
-  {
-    nodes2.push_back(polylines[i][polylines[i].size() - 1]);
-    nodes2.push_back(polylines[i + 1][0]);
-    edges2.push_back({2 * i, 2 * i + 1});
-    distance += norm(polylines[i][polylines[i].size() - 1] - polylines[i + 1][0]);
-  }
-  std::cout << "Layer " << id << ": total travel distance = " << distance << "mm.\n";
-
-  polyscope::registerCurveNetwork("Layer " + std::to_string(id), nodes, edges)->setRadius(spacing / 2, false);
-  polyscope::getCurveNetwork("Layer " + std::to_string(id))
-      ->addEdgeScalarQuantity("order", colors)
-      ->setColorMap("blues")
-      ->setEnabled(true);
-
-  polyscope::registerCurveNetwork("Travel " + std::to_string(id), nodes2, edges2)
-      ->setRadius(spacing / 2, false)
-      ->setEnabled(false);
-}
-
-void stripePattern(VertexPositionGeometry& geometry,
-                   const Eigen::MatrixXd& _V,
-                   Eigen::MatrixXd& _P,
-                   const Eigen::MatrixXi& _F,
-                   VertexData<double>& vTheta2,
-                   std::string filename,
-                   double timeLimit,
-                   double layerHeight,
-                   double spacing,
-                   int nLayers)
-{
-  Eigen::MatrixXd V = _V;
-  Eigen::MatrixXi F = _F;
-  std::vector<Eigen::SparseMatrix<double>> subdivMat;
-
-  subdivideMesh(geometry, V, _P, F, subdivMat, spacing);
-
-  ManifoldSurfaceMesh subdividedMesh(F);
-  Eigen::MatrixXd P_3D(_P.rows(), 3);
-  P_3D.leftCols(2) = _P;
-  P_3D.col(2).setZero();
-  VertexPositionGeometry geometryUV(subdividedMesh, P_3D);
-
-  FaceData<double> theta1 = computeStretchAngles(subdividedMesh, V, _P, F);
-
-  // convert face angles into vertex angles
-  Eigen::VectorXd th1(V.rows());
-  for(int i = 0; i < V.rows(); ++i)
-  {
-    double sumAngles = 0;
-    int nFaces = 0;
-    Vertex v = subdividedMesh.vertex(i);
-    for(Face f: v.adjacentFaces())
-    {
-      // add face orientations in global coordinates
-      if(!f.isBoundaryLoop())
-      {
-        sumAngles += theta1[f];
-        nFaces += 1;
-      }
-    }
-    th1(i) = sumAngles / nFaces;
-  }
-
-  Eigen::VectorXd th2 = vTheta2.toVector();
-  for(auto& mat: subdivMat)
-    th2 = mat * th2;
-
-  std::vector<std::vector<std::vector<Vector3>>> paths =
-      generatePaths(geometryUV, th1, th2, layerHeight, nLayers, spacing, timeLimit);
-
-  // Update height every layers
-  static double height = 0;
-  for(int i = 0; i < nLayers; ++i)
-  {
-    height += layerHeight + static_cast<float>(i) / (nLayers - 1) * 2 * (0.8 / nLayers - layerHeight);
-    writePaths(filename + ".path", paths[i], height);
-    drawPathsAndTravels(paths[i], spacing, i + 1);
   }
 }
 
@@ -411,7 +340,7 @@ std::vector<std::vector<std::vector<geometrycentral::Vector3>>> generatePaths(Em
       const auto& [points, edges] = extractPolylinesFromStripePattern(geometry, stripeValues + j * PI, stripeIndices,
                                                                       fieldIndices, directionField);
       auto polylines = edgeToPolyline(points, edges);
-      polylines = orderPolylines(polylines, geometry, timeLimit);
+      // polylines = orderPolylines(polylines, timeLimit);
       paths.push_back(simplifyPolylines(polylines, (2 * i + j) * layerHeight));
     }
   }
@@ -491,4 +420,185 @@ std::vector<std::vector<Vector3>> edgeToPolyline(const std::vector<Vector3>& poi
       polylines.push_back(isoline);
     }
   return polylines;
+}
+
+std::tuple<VertexData<double>, FaceData<double>, EdgeData<double>> hodgeDecomposition(VertexPositionGeometry& geometry,
+                                                                                      const EdgeData<double>& oneForm)
+{
+  SurfaceMesh& mesh = geometry.mesh;
+  geometry.requireDECOperators();
+
+  Vector<double> omega = oneForm.toVector();
+
+  // Solve for the curl-free part alpha
+  SparseMatrix<double> A = geometry.d0.transpose() * geometry.hodge1 * geometry.d0;
+
+  Vector<double> rhs = geometry.d0.transpose() * geometry.hodge1 * omega;
+  Vector<double> alpha = solvePositiveDefinite(A, rhs);
+
+  // Solve for the divergence free part beta
+  SparseMatrix<double> B = geometry.d1 * geometry.hodge1Inverse * geometry.d1.transpose();
+
+  rhs = geometry.d1 * omega;
+  Vector<double> beta = solveSquare(B, rhs);
+
+  beta = geometry.hodge2 * beta;
+
+  EdgeData<double> gamma(mesh);
+  gamma.fromVector(omega - geometry.d0 * alpha -
+                   geometry.hodge1Inverse * geometry.d1.transpose() * geometry.hodge2 * beta);
+
+  VertexData<double> vAlpha(mesh);
+  vAlpha.fromVector(alpha);
+
+  FaceData<double> fBeta(mesh);
+  fBeta.fromVector(beta);
+
+  return std::make_tuple(vAlpha, fBeta, gamma);
+}
+
+Eigen::VectorXd
+curlFreeParameterization(const Eigen::MatrixXd& P, const Eigen::MatrixXi& F, const Eigen::VectorXd& theta)
+{
+  // create geometry-central objects
+  ManifoldSurfaceMesh mesh(F);
+  Eigen::MatrixXd P_3D(P.rows(), 3);
+  P_3D.leftCols(2) = P;
+  P_3D.col(2).setZero();
+  VertexPositionGeometry geometry(mesh, P_3D);
+
+  FaceData<Vector3> vectorField(mesh);
+  for(int i = 0; i < F.rows(); ++i)
+  {
+    vectorField[i] = {cos(theta(i)), sin(theta(i)), 0};
+  }
+
+  return curlFreeParameterization(geometry, vectorField);
+}
+
+Eigen::VectorXd curlFreeParameterization(VertexPositionGeometry& geometry, const FaceData<Vector3>& vectorField)
+{
+  geometry.requireDECOperators();
+
+  SparseMatrix<double> A = geometry.d0.transpose() * geometry.hodge1 * geometry.d0;
+  LDLTSolver solver;
+  solver.compute(A);
+
+  return curlFreeParameterization(geometry, vectorField, solver);
+}
+
+Eigen::VectorXd
+curlFreeParameterization(VertexPositionGeometry& geometry, const FaceData<Vector3>& vectorField, LDLTSolver& solver)
+{
+  SurfaceMesh& mesh = geometry.mesh;
+  geometry.requireDECOperators();
+
+  // Construct two one forms: one from the vector field, and the other from its 90 degree rotation
+  EdgeData<double> oneFormPerp(mesh);
+  geometry.requireVertexNormals();
+  for(Edge e: mesh.edges())
+  {
+    Vector3 v = geometry.vertexPositions[e.secondVertex()] - geometry.vertexPositions[e.firstVertex()];
+    Vector3 w;
+    if(e.isBoundary())
+    {
+      w = normalize(vectorField[e.halfedge().face()]);
+    }
+    else
+    {
+      w = normalize(vectorField[e.halfedge().face()] + vectorField[e.halfedge().twin().face()]);
+    }
+
+    w = cross(w, geometry.vertexNormals[e.firstVertex()]);
+    oneFormPerp[e] = dot(v, w);
+  }
+
+  // Solve for the curl-free part (Helmholtz-Hodge decomposition)
+  Eigen::VectorXd rhs = geometry.d0.transpose() * geometry.hodge1 * oneFormPerp.toVector();
+
+  return solver.solve(rhs);
+}
+
+std::vector<std::vector<Vector3>> orderPolylinesNew(const std::vector<std::vector<Vector3>>& isolines,
+                                                    const Eigen::MatrixX2d& P,
+                                                    const Eigen::MatrixXi& F,
+                                                    const Eigen::VectorXd& theta)
+{
+  Eigen::VectorXd vCoordinate = curlFreeParameterization(P, F, theta);
+  return orderPolylinesNew(isolines, P, vCoordinate);
+}
+
+std::vector<std::vector<Vector3>> orderPolylinesNew(const std::vector<std::vector<Vector3>>& isolines,
+                                                    const Eigen::MatrixX2d& P,
+                                                    const Eigen::VectorXd& vCoordinate)
+{
+  Timer timer("Order polylines");
+
+  // // build grid
+  // Eigen::Vector2d dimensions = P.colwise().maxCoeff() - P.colwise().minCoeff();
+  // Eigen::MatrixXd values;
+  // values.setZero(round(dimensions(0)) + 1, round(dimensions(1)) + 1);
+
+  // for(int i = 0; i < P.rows(); ++i)
+  // {
+  //   int x = round(P(i, 0) + dimensions(0) / 2);
+  //   int y = round(P(i, 1) + dimensions(1) / 2);
+  //   values(x, y) = vCoordinate(i, 1);
+  // }
+
+  std::vector<std::pair<double, int>> toSort(isolines.size());
+
+  // #pragma omp parallel for schedule(static) num_threads(omp_get_max_threads() - 1)
+  for(int k = 0; k < isolines.size(); ++k)
+  {
+    const auto& isoline = isolines[k];
+    double value = 0;
+    for(const Vector3& v: isoline)
+    {
+      // find closest vertex in mesh
+      Eigen::RowVector2d p(v.x, v.y);
+      double minDist = (p - P.row(0)).norm();
+      int minIdx = 0;
+      for(int i = 0; i < P.rows(); ++i)
+      {
+        double dist = (p - P.row(i)).norm();
+        if(dist < minDist)
+        {
+          minDist = dist;
+          minIdx = i;
+        }
+      }
+      value += vCoordinate(minIdx, 1);
+      // int x = round(v.x) + dimensions(0) / 2;
+      // int y = round(v.y) + dimensions(1) / 2;
+      // value += values(x, y);
+    }
+    value /= isoline.size();
+    toSort[k].first = value;
+    toSort[k].second = k;
+  }
+
+  std::sort(toSort.begin(), toSort.end(), [](auto& a, auto& b) { return a.first < b.first; });
+  // for(const auto& [value, k]: toSort)
+  //   std::cout << value << ", " << k << " " << "\n";
+  std::vector<std::vector<Vector3>> sortedIsolines(isolines.size());
+  Vector3 prevEndpoint = isolines[toSort[0].second][0];
+
+  for(int i = 0; i < isolines.size(); ++i)
+  {
+    double dist1 = norm(prevEndpoint - isolines[toSort[i].second][0]);
+    double dist2 = norm(prevEndpoint - isolines[toSort[i].second].back());
+    if(dist1 < dist2)
+    {
+      sortedIsolines[i] = isolines[toSort[i].second];
+    }
+    else // enumerate vertices from last to first
+    {
+      sortedIsolines[i].reserve(isolines[toSort[i].second].size());
+      for(int j = isolines[toSort[i].second].size() - 1; j >= 0; --j)
+        sortedIsolines[i].push_back(isolines[toSort[i].second][j]);
+    }
+    prevEndpoint = sortedIsolines[i].back();
+  }
+  return sortedIsolines;
 }
