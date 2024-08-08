@@ -8,7 +8,6 @@ void generateTrajectories(geometrycentral::surface::VertexPositionGeometry& geom
                           const Eigen::MatrixXi& _F,
                           geometrycentral::surface::VertexData<double>& vTheta2,
                           std::string filename,
-                          double timeLimit = 5,
                           double layerHeight = 0.08,
                           double spacing = 0.4,
                           int nLayers = 10);

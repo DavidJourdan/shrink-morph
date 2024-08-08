@@ -273,7 +273,6 @@ int main(int argc, char* argv[])
     // GUI parameters
     static double wM = 0.01;
     static double wL = 0.01;
-    static double timeLimit = 5;
     static double E1 = 10;
     static double width = 100;
     static double lim = 1e-6;
@@ -420,13 +419,9 @@ int main(int argc, char* argv[])
 
       trajTimer.start();
       trajectoriesRun = true;
-      generateTrajectories(geometry, V, P, F, theta2, filename, timeLimit, 0.08, 0.4, nLayers);
+      generateTrajectories(geometry, V, P, F, theta2, filename, 0.08, 0.4, nLayers);
       trajTimer.stop();
     }
-    ImGui::SameLine();
-    ImGui::PushItemWidth(40);
-    ImGui::InputDouble("(s) Time limit per layer", &timeLimit, 0, 0, "%.1f");
-    ImGui::PopItemWidth();
 
     if(ImGui::TreeNode("Advanced parameters"))
     {

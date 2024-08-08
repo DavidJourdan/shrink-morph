@@ -225,7 +225,7 @@ std::vector<Eigen::MatrixXd> generateTrajectories(const nb::DRef<Eigen::MatrixXd
   }
 
   std::vector<std::vector<std::vector<Vector3>>> paths =
-      generatePaths(geometryUV, th1, theta2, layerHeight, nLayers, spacing, 1);
+      generatePaths(geometryUV, th1, theta2, layerHeight, nLayers, spacing);
 
   // convert data to the right format
   std::vector<Eigen::MatrixXd> dataArray;

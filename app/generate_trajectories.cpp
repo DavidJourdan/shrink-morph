@@ -16,7 +16,6 @@ void generateTrajectories(VertexPositionGeometry& geometry,
                           const Eigen::MatrixXi& _F,
                           VertexData<double>& vTheta2,
                           std::string filename,
-                          double timeLimit,
                           double layerHeight,
                           double spacing,
                           int nLayers)
@@ -60,7 +59,7 @@ void generateTrajectories(VertexPositionGeometry& geometry,
     th2 = mat * th2;
 
   std::vector<std::vector<std::vector<Vector3>>> paths =
-      generatePaths(geometryUV, th1, th2, layerHeight, nLayers, spacing, timeLimit);
+      generatePaths(geometryUV, th1, th2, layerHeight, nLayers, spacing);
 
   // geometryUV.requireDECOperators();
   // SparseMatrix<double> A = geometryUV.d0.transpose() * geometryUV.hodge1 * geometryUV.d0;
@@ -91,10 +90,10 @@ void generateTrajectories(VertexPositionGeometry& geometry,
   //   paths[i] = orderPolylinesNew(paths[i], P, vCoordinate);
   // }
 
-  for(int i = 0; i < nLayers; ++i)
-  {
-    paths[i] = orderPolylines(paths[i], timeLimit);
-  }
+  // for(int i = 0; i < nLayers; ++i)
+  // {
+  //   paths[i] = orderPolylines(paths[i]);
+  // }
 
   // Update height every layers
   static double height = 0;

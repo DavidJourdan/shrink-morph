@@ -5,8 +5,7 @@
 #include <geometrycentral/surface/vertex_position_geometry.h>
 
 std::vector<std::vector<geometrycentral::Vector3>>
-orderPolylines(const std::vector<std::vector<geometrycentral::Vector3>>& isolines,
-               double timeLimit = 5);
+orderPolylines(const std::vector<std::vector<geometrycentral::Vector3>>& isolines);
 
 std::vector<std::vector<geometrycentral::Vector3>>
 simplifyPolylines(const std::vector<std::vector<geometrycentral::Vector3>>& polylines, double z = 0);
@@ -17,8 +16,7 @@ generatePaths(geometrycentral::surface::EmbeddedGeometryInterface& geometry,
               const Eigen::VectorXd& theta2,
               double layerHeight,
               int nLayers,
-              double spacing,
-              double timeLimit = 5);
+              double spacing);
 
 void writePaths(const std::string& filename,
                 const std::vector<std::vector<geometrycentral::Vector3>>& paths,

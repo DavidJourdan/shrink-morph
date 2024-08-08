@@ -28,7 +28,6 @@ int main(int argc, char* argv[])
   double width = 200;
   double lim = 1e-6;
   int n_iter = 1000;
-  double timeLimit = 5;
   double wM = 0.01;
   double wL = 0.01;
   double E1 = 10;
@@ -48,8 +47,6 @@ int main(int argc, char* argv[])
     width = std::stod(argv[3]);
   if(argc >= 5)
     nFmin = std::stoi(argv[4]);
-  if(argc >= 6)
-    timeLimit = std::stod(argv[5]);
 
   // Load a mesh in OBJ format
   Eigen::MatrixXd V;
@@ -187,7 +184,7 @@ int main(int argc, char* argv[])
     th2 = mat * th2;
 
   std::vector<std::vector<std::vector<Vector3>>> paths =
-      generatePaths(geometryUV, th1, th2, layerHeight, nLayers, spacing, timeLimit);
+      generatePaths(geometryUV, th1, th2, layerHeight, nLayers, spacing);
 
   for(int i = 0; i < nLayers; ++i)
     writePaths(filename + ".path", paths[i], (i + 1) * layerHeight);

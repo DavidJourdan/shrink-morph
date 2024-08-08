@@ -151,7 +151,7 @@ class ShrinkMorph:
     ps.init()
     ps.set_up_dir("neg_y_up")
 
-    ps.load_color_map("twilight", "data/twilight.png");
+    ps.load_color_map("twilight", "data/twilight_colormap.png");
     ps.set_ground_plane_mode("shadow_only")
 
     self.V = V

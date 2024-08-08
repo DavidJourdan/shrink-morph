@@ -1,7 +1,5 @@
 #include "path_extraction.h"
 
-// #include "parameterization.h"
-// #include "stretch_angles.h"
 #include "stripe_patterns.h"
 #include "timer.h"
 
@@ -11,69 +9,11 @@
 #include <igl/boundary_loop.h>
 #include <igl/ramer_douglas_peucker.h>
 
-#ifdef USE_ORTOOLS
-#include <ortools/constraint_solver/routing.h>
-#include <ortools/constraint_solver/routing_enums.pb.h>
-#include <ortools/constraint_solver/routing_index_manager.h>
-#include <ortools/constraint_solver/routing_parameters.h>
-#endif
-
 using namespace geometrycentral;
 using namespace geometrycentral::surface;
 
 namespace
 {
-#ifdef USE_ORTOOLS
-std::vector<int64_t> computeReordering(const std::vector<Vector3>& endPoints, double timeLimit)
-{
-  using namespace operations_research;
-
-  // Create the VRP routing model. The 1 means we are only looking for a single path.
-  int nPaths = endPoints.size() / 4;
-  RoutingIndexManager manager(2 * nPaths + 1, 1, RoutingIndexManager::NodeIndex{2 * nPaths});
-  RoutingModel routing(manager);
-
-  // For every path node, add a disjunction so that we do not also trace its reverse
-  for(int64_t i = 0; i < nPaths; ++i)
-    routing.AddDisjunction({2 * i, 2 * i + 1});
-
-  // Wrap the distance function so that it converts to an integer, as or-tools requires.
-  // Distances are rounded to the nearest nanometer value, should be precise enough
-  const double COST_MULTIPLIER = 1e6;
-  int64_t transitCallbackIndex = routing.RegisterTransitCallback([&](int64_t i, int64_t j) -> int64_t {
-    int64_t fromNode = manager.IndexToNode(i).value();
-    int64_t toNode = manager.IndexToNode(j).value();
-    if(fromNode == 2 * nPaths || toNode == 2 * nPaths)
-      return 0;
-    double dist = (endPoints[2 * fromNode + 1] - endPoints[2 * toNode]).norm();
-    return static_cast<int64_t>(COST_MULTIPLIER * dist);
-  });
-  routing.SetArcCostEvaluatorOfAllVehicles(transitCallbackIndex);
-
-  RoutingSearchParameters searchParameters = DefaultRoutingSearchParameters();
-  searchParameters.mutable_time_limit()->set_seconds(timeLimit);
-  searchParameters.set_solution_limit(kint64max);
-  searchParameters.set_first_solution_strategy(FirstSolutionStrategy::SAVINGS);
-  searchParameters.set_local_search_metaheuristic(LocalSearchMetaheuristic::GUIDED_LOCAL_SEARCH);
-
-  // solve routing problem
-  auto finalAssignment = std::make_unique<Assignment>(routing.SolveWithParameters(searchParameters));
-
-  // Iterate over the result
-  std::vector<int64_t> result;
-  result.reserve(nPaths);
-  int64_t index = routing.Start(0);
-  for(int i = 0; i < nPaths; ++i)
-  {
-    index = manager.IndexToNode(finalAssignment->Value(routing.NextVar(index))).value();
-    assert(index <= 2 * nPaths);
-    result.push_back(index);
-  }
-
-  // build polyline list from the list of endpoint indices
-  return result;
-}
-#else
 std::vector<int> greedyIndexing(const std::vector<Vector3>& endPoints)
 {
   // find closest end-point to home
@@ -130,27 +70,10 @@ std::vector<int> greedyIndexing(const std::vector<Vector3>& endPoints)
 
   return endPointIndices;
 }
-#endif
 } // namespace
 
-std::vector<std::vector<Vector3>> orderPolylines(const std::vector<std::vector<Vector3>>& isolines, double timeLimit)
+std::vector<std::vector<Vector3>> orderPolylines(const std::vector<std::vector<Vector3>>& isolines)
 {
-#ifdef USE_ORTOOLS
-  // build list of isoline end-points, enumerated twice (one for each direction)
-  std::vector<Vector3> endPoints(4 * isolines.size());
-
-  for(size_t i = 0; i < isolines.size(); ++i)
-  {
-    endPoints[4 * i] = isolines[i][0];
-    endPoints[4 * i + 1] = isolines[i][isolines[i].size() - 1];
-
-    endPoints[4 * i + 2] = endPoints[4 * i + 1];
-    endPoints[4 * i + 3] = endPoints[4 * i];
-  }
-
-  // TSP solving
-  std::vector<int64_t> indices = computeReordering(endPoints, timeLimit);
-#else
   std::vector<Vector3> endPoints(2 * isolines.size());
 
   for(int i = 0; i < isolines.size(); ++i)
@@ -160,63 +83,62 @@ std::vector<std::vector<Vector3>> orderPolylines(const std::vector<std::vector<V
   }
 
   std::vector<int> indices = greedyIndexing(endPoints);
-#endif
   // assemble final polyline list
-  // std::vector<std::vector<Vector3>> polylines(isolines.size());
-  // for(size_t i = 0; i < isolines.size(); ++i)
-  // {
-  //   auto isoline = isolines[indices[i] / 2];
-
-  //   if(indices[i] % 2 == 0)
-  //   {
-  //     polylines[i] = isoline;
-  //   }
-  //   else // enumerate vertices from last to first
-  //   {
-  //     polylines[i].reserve(isoline.size());
-  //     for(int j = isoline.size() - 1; j >= 0; --j)
-  //     {
-  //       polylines[i].push_back(isoline[j]);
-  //     }
-  //   }
-  // }
-  std::vector<std::vector<Vector3>> polylines;
+  std::vector<std::vector<Vector3>> polylines(isolines.size());
   for(size_t i = 0; i < isolines.size(); ++i)
   {
-    int n = isolines[indices[i] / 2].size();
-    auto previous = [&](int i) {
-      if(indices[i - 1] % 2 == 0)
-        return indices[i - 1] + 1;
-      else
-        return indices[i - 1] - 1;
-    };
-    if(i > 0 && norm(endPoints[previous(i)] - endPoints[indices[i]]) < 2)
-    { // append to previous isoline
-      if(indices[i] % 2 == 0)
-        for(int j = 0; j < n; ++j)
-          polylines[polylines.size() - 1].push_back(isolines[indices[i] / 2][j]);
-      else
-        for(int j = n - 1; j >= 0; --j)
-          polylines[polylines.size() - 1].push_back(isolines[indices[i] / 2][j]);
+    auto isoline = isolines[indices[i] / 2];
+
+    if(indices[i] % 2 == 0)
+    {
+      polylines[i] = isoline;
     }
-    else
-    { // create new isoline
-      if(indices[i] % 2 == 0)
+    else // enumerate vertices from last to first
+    {
+      polylines[i].reserve(isoline.size());
+      for(int j = isoline.size() - 1; j >= 0; --j)
       {
-        polylines.push_back(isolines[indices[i] / 2]);
-      }
-      else // enumerate vertices from last to first
-      {
-        std::vector<Vector3> isoline;
-        isoline.reserve(n);
-        for(int j = n - 1; j >= 0; --j)
-        {
-          isoline.push_back(isolines[indices[i] / 2][j]);
-        }
-        polylines.push_back(isoline);
+        polylines[i].push_back(isoline[j]);
       }
     }
   }
+  // std::vector<std::vector<Vector3>> polylines;
+  // for(size_t i = 0; i < isolines.size(); ++i)
+  // {
+  //   int n = isolines[indices[i] / 2].size();
+  //   auto previous = [&](int i) {
+  //     if(indices[i - 1] % 2 == 0)
+  //       return indices[i - 1] + 1;
+  //     else
+  //       return indices[i - 1] - 1;
+  //   };
+  //   if(i > 0 && norm(endPoints[previous(i)] - endPoints[indices[i]]) < 2)
+  //   { // append to previous isoline
+  //     if(indices[i] % 2 == 0)
+  //       for(int j = 0; j < n; ++j)
+  //         polylines[polylines.size() - 1].push_back(isolines[indices[i] / 2][j]);
+  //     else
+  //       for(int j = n - 1; j >= 0; --j)
+  //         polylines[polylines.size() - 1].push_back(isolines[indices[i] / 2][j]);
+  //   }
+  //   else
+  //   { // create new isoline
+  //     if(indices[i] % 2 == 0)
+  //     {
+  //       polylines.push_back(isolines[indices[i] / 2]);
+  //     }
+  //     else // enumerate vertices from last to first
+  //     {
+  //       std::vector<Vector3> isoline;
+  //       isoline.reserve(n);
+  //       for(int j = n - 1; j >= 0; --j)
+  //       {
+  //         isoline.push_back(isolines[indices[i] / 2][j]);
+  //       }
+  //       polylines.push_back(isoline);
+  //     }
+  //   }
+  // }
   // std::cout << isolines.size() << " " << polylines.size() << "\n";
 
   return polylines;
@@ -264,8 +186,7 @@ std::vector<std::vector<std::vector<geometrycentral::Vector3>>> generatePaths(Em
                                                                               const Eigen::VectorXd& theta2,
                                                                               double layerHeight,
                                                                               int nLayers,
-                                                                              double spacing,
-                                                                              double timeLimit)
+                                                                              double spacing)
 {
   std::vector<std::vector<std::vector<Vector3>>> paths;
 
@@ -340,7 +261,7 @@ std::vector<std::vector<std::vector<geometrycentral::Vector3>>> generatePaths(Em
       const auto& [points, edges] = extractPolylinesFromStripePattern(geometry, stripeValues + j * PI, stripeIndices,
                                                                       fieldIndices, directionField);
       auto polylines = edgeToPolyline(points, edges);
-      // polylines = orderPolylines(polylines, timeLimit);
+      polylines = orderPolylines(polylines);
       paths.push_back(simplifyPolylines(polylines, (2 * i + j) * layerHeight));
     }
   }
