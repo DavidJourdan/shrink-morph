@@ -2,6 +2,10 @@
 ```
 sudo apt install xorg-dev libglu1-mesa-dev freeglut3-dev mesa-common-dev
 ```
+Other dependencies (Python/Suitesparse):
+```
+sudo apt install python3-tk python3-virtualenv python3-pip python3-dev libsuitesparse-dev cmake git
+```
 
 # Fedora
 ```
