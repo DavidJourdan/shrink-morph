@@ -145,6 +145,9 @@ class ShrinkMorph:
     if gui.Button("Next"):
       self.leave = False
       ps.unshow()
+    
+    if gui.Button("Vary Heights"):
+      self.varying_heights()
 
   def show(self, V, F):
     ps.set_give_focus_on_show(True)
@@ -316,6 +319,58 @@ class ShrinkMorph:
     if gui.Button("Export to g-code"):
       filename = filedialog.asksaveasfilename(defaultextension='.gcode')
       self.printer.to_gcode(self.trajectories, filename)
+  
+  def read_trajectories(self, filename):
+    print("reading file " + filename)
+
+    with open(filename, "r") as file:
+        paths = []
+        line = file.readline()
+        while line:
+            num_vertices = int(line)
+            path = []
+            for i in range(num_vertices):
+                line = file.readline()
+                vertex = line.split()
+                path.append([float(x) for x in vertex])
+            paths.append(np.array(path))
+            line = file.readline()
+    return paths
+
+  def varying_heights(self):
+    length = 80
+    width = 20
+    nb_layers = 10
+    layer_height = 0.08
+    jump_y = width+10
+    jump_x = 0
+    shift_y = 2 * jump_y
+    shift_x = 0
+
+    with open("sample.path", "w") as file:
+        layer_height = 0.08
+        for j in range(5):
+            nb_layers = 10-j
+            z = 0
+            for i in range(nb_layers):
+                z += layer_height + i / (nb_layers - 1) * 2 * (0.8 / nb_layers - 0.08)
+                y = -width/2 -j*jump_y + shift_y
+                x = -length/2 + shift_x
+                while(y < width/2 - j*jump_y + shift_y):
+                    if x < 0 + shift_x:
+                        file.write("2\n")
+                        file.write(f"{x:.2f} {y:.2f} {z:.4f}\n")
+                        x = length/2 + shift_x
+                        file.write(f"{x:.2f} {y:.2f} {z:.4f}\n")
+                    else:
+                        file.write("2\n")
+                        file.write(f"{x:.2f} {y:.2f} {z:.4f}\n")
+                        x = -length/2 + shift_x
+                        file.write(f"{x:.2f} {y:.2f} {z:.4f}\n")
+                    y += 0.4
+                print(f"{z:.4f}")
+    self.trajectories = self.read_trajectories("sample.path")
+    self.printer.to_gcode(self.trajectories, "test2.gcode")
 
 main = ShrinkMorph()
 main.show(V, F)
