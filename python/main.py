@@ -24,6 +24,9 @@ class ShrinkMorph:
   width = 200
   wM = 0.01
   wL = 0.01
+  num_rectangles = 5
+  num_layers = 10
+  layer_height = 0.08
   with_smoothing = False
   printer_profile = "Prusa_MK3S"
   printers_list = [
@@ -146,8 +149,12 @@ class ShrinkMorph:
       self.leave = False
       ps.unshow()
     
-    if gui.Button("Vary Heights"):
-      self.varying_heights()
+    changed_1, self.num_rectangles = gui.DragFloat("Number of Rectangles", self.num_rectangles, 1, 1, 10, "%.0f")
+    changed_2, self.num_layers = gui.DragFloat("Number of Layers", self.num_layers, 1, 1, 20, "%.0f")
+    changed_3, self.layer_height = gui.DragFloat("Layer Height", self.layer_height, 0.01, 0, 50, "%.2f")
+    
+    if gui.Button("Generate Calibration G-code"):
+      self.varying_heights(self.num_rectangles, self.num_layers, self.layer_height)
 
   def show(self, V, F):
     ps.set_give_focus_on_show(True)
@@ -337,19 +344,19 @@ class ShrinkMorph:
             line = file.readline()
     return paths
 
-  def varying_heights(self):
+  def varying_heights(self, num_rectangles, num_layers, layer_height):
     length = 80
     width = 20
-    nb_layers = 10
-    layer_height = 0.08
+    nb_layers = int(num_layers)
+    layer_height = float(layer_height)
     jump_y = width+10
     jump_x = 0
     shift_y = 2 * jump_y
     shift_x = 0
 
     with open("sample.path", "w") as file:
-        layer_height = 0.08
-        for j in range(5):
+        #layer_height = 0.08
+        for j in range(int(num_rectangles)):
             nb_layers = 10-j
             z = 0
             for i in range(nb_layers):
