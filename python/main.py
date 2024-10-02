@@ -27,6 +27,8 @@ class ShrinkMorph:
   num_rectangles = 5
   num_layers = 10
   layer_height = 0.08
+  rect_length = 80
+  rect_width = 20
   with_smoothing = False
   printer_profile = "Prusa_MK3S"
   printers_list = [
@@ -149,18 +151,17 @@ class ShrinkMorph:
       self.leave = False
       ps.unshow()
     
-    # TODO pass the new variables: rect_width and rect_length should be passed to the generate_calibration function
     _, self.num_rectangles = gui.DragFloat("Number of Rectangles", self.num_rectangles, 1, 1, 10, "%.0f")
     _, self.num_layers = gui.DragFloat("Number of Layers", self.num_layers, 1, 1, 20, "%.0f")
     _, self.layer_height = gui.DragFloat("Layer Height", self.layer_height, 0.01, 0, 50, "%.2f")
     _, self.printer.bed_temp = gui.DragFloat("Bed temperature", self.printer.bed_temp, 1, 20, 60, "%.0f")
     _, self.printer.extruder_temp = gui.DragFloat("Nozzle temperature", self.printer.extruder_temp, 1, 180, 230, "%.0f")
     _, self.printer.print_speed = gui.DragFloat("Printing speed (mm/s)", self.printer.print_speed, 1, 10, 100, "%.0f")
-    _, rect_width = gui.DragFloat("Rectangle width (mm)", 20, 1, 1, 20, "%.0f")
-    _, rect_length = gui.DragFloat("Rectangle length (mm)", 80, 1, 1, 20, "%.0f")
+    _, self.rect_width = gui.DragFloat("Rectangle width (mm)", self.rect_width, 1, 1, 20, "%.0f")
+    _, self.rect_length = gui.DragFloat("Rectangle length (mm)", self.rect_length, 1, 1, 20, "%.0f")
     
     if gui.Button("Generate Calibration G-code"):
-      self.generate_calibration(self.num_rectangles, self.num_layers, self.layer_height)
+      self.generate_calibration(self.num_rectangles, self.num_layers, self.layer_height, self.rect_length, self.rect_width)
 
   def show(self, V, F):
     ps.set_give_focus_on_show(True)
@@ -350,9 +351,9 @@ class ShrinkMorph:
             line = file.readline()
     return paths
 
-  def generate_calibration(self, num_rectangles, num_layers, layer_height):
-    length = 80
-    width = 20
+  def generate_calibration(self, num_rectangles, num_layers, layer_height, rect_length, rect_width):
+    length = int(rect_length)
+    width = int(rect_width)
     nb_layers = int(num_layers)
     layer_height = float(layer_height)
     jump_y = width+10
