@@ -144,6 +144,7 @@ class ShrinkMorph:
       changed, self.thickness = gui.InputFloat("self.Thickness", self.thickness, 0, 0, "%.1e")
       changed, self.n_iter = gui.InputInt("Iterations", self.n_iter, step=1)
       changed, self.lim = gui.InputFloat("self.Limit", self.lim, 0, 0, "%.1e")
+      gui.TreePop()
 
     if gui.Button("Next"):
       self.leave = False
