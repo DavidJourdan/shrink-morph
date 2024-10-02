@@ -149,12 +149,19 @@ class ShrinkMorph:
       self.leave = False
       ps.unshow()
     
-    changed_1, self.num_rectangles = gui.DragFloat("Number of Rectangles", self.num_rectangles, 1, 1, 10, "%.0f")
-    changed_2, self.num_layers = gui.DragFloat("Number of Layers", self.num_layers, 1, 1, 20, "%.0f")
-    changed_3, self.layer_height = gui.DragFloat("Layer Height", self.layer_height, 0.01, 0, 50, "%.2f")
+    # TODO pass the new variables: bed_temp, nozzle_temp, print_speed -> self.printer
+    # rect_width and rect_length should be passed to the generate_calibration function
+    _, self.num_rectangles = gui.DragFloat("Number of Rectangles", self.num_rectangles, 1, 1, 10, "%.0f")
+    _, self.num_layers = gui.DragFloat("Number of Layers", self.num_layers, 1, 1, 20, "%.0f")
+    _, self.layer_height = gui.DragFloat("Layer Height", self.layer_height, 0.01, 0, 50, "%.2f")
+    _, bed_temp = gui.DragFloat("Bed temperature", 55, 1, 1, 20, "%.0f")
+    _, nozzle_temp = gui.DragFloat("Nozzle temperature", 190, 1, 1, 20, "%.0f")
+    _, print_speed = gui.DragFloat("Printing speed (mm/s)", 30, 1, 1, 20, "%.0f")
+    _, rect_width = gui.DragFloat("Rectangle width (mm)", 20, 1, 1, 20, "%.0f")
+    _, rect_length = gui.DragFloat("Rectangle length (mm)", 80, 1, 1, 20, "%.0f")
     
     if gui.Button("Generate Calibration G-code"):
-      self.varying_heights(self.num_rectangles, self.num_layers, self.layer_height)
+      self.generate_calibration(self.num_rectangles, self.num_layers, self.layer_height)
 
   def show(self, V, F):
     ps.set_give_focus_on_show(True)
@@ -336,7 +343,7 @@ class ShrinkMorph:
         while line:
             num_vertices = int(line)
             path = []
-            for i in range(num_vertices):
+            for _ in range(num_vertices):
                 line = file.readline()
                 vertex = line.split()
                 path.append([float(x) for x in vertex])
@@ -344,7 +351,7 @@ class ShrinkMorph:
             line = file.readline()
     return paths
 
-  def varying_heights(self, num_rectangles, num_layers, layer_height):
+  def generate_calibration(self, num_rectangles, num_layers, layer_height):
     length = 80
     width = 20
     nb_layers = int(num_layers)
@@ -354,6 +361,7 @@ class ShrinkMorph:
     shift_y = 2 * jump_y
     shift_x = 0
 
+    paths = []
     with open("sample.path", "w") as file:
         #layer_height = 0.08
         for j in range(int(num_rectangles)):
@@ -364,20 +372,21 @@ class ShrinkMorph:
                 y = -width/2 -j*jump_y + shift_y
                 x = -length/2 + shift_x
                 while(y < width/2 - j*jump_y + shift_y):
+                    path = []
                     if x < 0 + shift_x:
                         file.write("2\n")
-                        file.write(f"{x:.2f} {y:.2f} {z:.4f}\n")
+                        path.append([x, y, z])
                         x = length/2 + shift_x
-                        file.write(f"{x:.2f} {y:.2f} {z:.4f}\n")
+                        path.append([x, y, z])
                     else:
                         file.write("2\n")
-                        file.write(f"{x:.2f} {y:.2f} {z:.4f}\n")
+                        path.append([x, y, z])
                         x = -length/2 + shift_x
-                        file.write(f"{x:.2f} {y:.2f} {z:.4f}\n")
+                        path.append([x, y, z])
                     y += 0.4
-                print(f"{z:.4f}")
-    self.trajectories = self.read_trajectories("sample.path")
-    self.printer.to_gcode(self.trajectories, "test2.gcode")
+                    paths.append(np.array(path))
+                print(f"{z:.4f}") # for debug purposes
+    self.printer.to_gcode(paths, "data/calibration.gcode")
 
 main = ShrinkMorph()
 main.show(V, F)
