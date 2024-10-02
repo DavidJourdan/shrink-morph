@@ -149,14 +149,13 @@ class ShrinkMorph:
       self.leave = False
       ps.unshow()
     
-    # TODO pass the new variables: bed_temp, nozzle_temp, print_speed -> self.printer
-    # rect_width and rect_length should be passed to the generate_calibration function
+    # TODO pass the new variables: rect_width and rect_length should be passed to the generate_calibration function
     _, self.num_rectangles = gui.DragFloat("Number of Rectangles", self.num_rectangles, 1, 1, 10, "%.0f")
     _, self.num_layers = gui.DragFloat("Number of Layers", self.num_layers, 1, 1, 20, "%.0f")
     _, self.layer_height = gui.DragFloat("Layer Height", self.layer_height, 0.01, 0, 50, "%.2f")
-    _, bed_temp = gui.DragFloat("Bed temperature", 55, 1, 1, 20, "%.0f")
-    _, nozzle_temp = gui.DragFloat("Nozzle temperature", 190, 1, 1, 20, "%.0f")
-    _, print_speed = gui.DragFloat("Printing speed (mm/s)", 30, 1, 1, 20, "%.0f")
+    _, self.printer.bed_temp = gui.DragFloat("Bed temperature", self.printer.bed_temp, 1, 20, 60, "%.0f")
+    _, self.printer.extruder_temp = gui.DragFloat("Nozzle temperature", self.printer.extruder_temp, 1, 180, 230, "%.0f")
+    _, self.printer.print_speed = gui.DragFloat("Printing speed (mm/s)", self.printer.print_speed, 1, 10, 100, "%.0f")
     _, rect_width = gui.DragFloat("Rectangle width (mm)", 20, 1, 1, 20, "%.0f")
     _, rect_length = gui.DragFloat("Rectangle length (mm)", 80, 1, 1, 20, "%.0f")
     
