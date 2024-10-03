@@ -152,16 +152,18 @@ class ShrinkMorph:
     if gui.Button("Next"):
       self.leave = False
       ps.unshow()
-    
-    _, self.num_rectangles = gui.DragFloat("Number of Rectangles", self.num_rectangles, 1, 1, 10, "%.0f")
-    _, self.num_layers = gui.DragFloat("Number of Layers", self.num_layers, 1, 1, 20, "%.0f")
-    _, self.layer_height = gui.DragFloat("Layer Height", self.layer_height, 0.01, 0, 50, "%.2f")
-    _, self.printer.bed_temp = gui.DragFloat("Bed temperature", self.printer.bed_temp, 1, 20, 60, "%.0f")
-    _, self.printer.extruder_temp = gui.DragFloat("Nozzle temperature", self.printer.extruder_temp, 1, 180, 230, "%.0f")
-    _, self.printer.print_speed = gui.DragFloat("Printing speed (mm/s)", self.printer.print_speed, 1, 10, 100, "%.0f")
+
+    _, self.num_rectangles = gui.InputInt("Number of Rectangles", self.num_rectangles)
+    _, self.num_layers = gui.InputInt("Number of Layers", self.num_layers)
+    _, self.layer_height = gui.InputFloat("Layer Height", self.layer_height, 0, 0, "%.2f")
+    _, self.printer.bed_temp = gui.InputFloat("Bed temperature", self.printer.bed_temp, 0, 0, "%.0f")
+    _, self.printer.extruder_temp = gui.InputFloat("Nozzle temperature", self.printer.extruder_temp, 0, 0, "%.0f")
+    _, self.printer.print_speed = gui.InputFloat("Printing speed (mm/s)", self.printer.print_speed, 0, 0, "%.0f")
+    _, self.printer.ncols = gui.InputInt("Repeat n columns", self.printer.ncols)
+    _, self.printer.nrows = gui.InputInt("Repeat n rows", self.printer.nrows)
     _, self.rect_width = gui.DragFloat("Rectangle width (mm)", self.rect_width, 1, 1, (self.printer.bed_size[1] + 10) / self.num_rectangles - 20, "%.0f")
     _, self.rect_length = gui.DragFloat("Rectangle length (mm)", self.rect_length, 1, 1, self.printer.bed_size[0] - 20, "%.0f")
-    
+
     if gui.Button("Generate Calibration G-code"):
       self.generate_calibration(self.num_rectangles, self.num_layers, self.layer_height, self.rect_length, self.rect_width)
 
