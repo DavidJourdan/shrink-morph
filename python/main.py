@@ -35,6 +35,7 @@ class ShrinkMorph:
     'Anet_A8', 
     'Anycubic_Mega_Zero',
     'Artillery_SW_X1', 
+    'BambuLab_X1C',
     'Creality_K1_Max', 
     'CR10',
     'CR10S_Pro', 
