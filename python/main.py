@@ -250,12 +250,16 @@ class ShrinkMorph:
     edges[:, 1] = np.arange(1, nodes.shape[0])
     colors = np.zeros(nodes.shape[0])
     path_id = 1
+    self.layer_nodes = []
+    self.layer_edges = []
 
     h = nodes[0,2]
     k = 1
     for traj in self.trajectories:
       if traj[0, 2] > h:
         ps_traj = ps.register_curve_network("Layer " + str(k), nodes, edges, enabled=False)
+        self.layer_nodes.append(nodes)
+        self.layer_edges.append(edges)
         ps_traj.set_radius(self.printer.nozzle_width / 2, relative=False)
         ps_traj.add_scalar_quantity("Ordering", colors, enabled=True, cmap="blues")
         nodes = traj
@@ -283,6 +287,7 @@ class ShrinkMorph:
 
 
   layer_id = 1
+  progress = 1
   def callback_traj(self):
     # global self.layer_id, self.V, self.P, self.F, self.theta2, self.printer_profile, self.trajectories, self.printer
     gui.PushItemWidth(200)
@@ -313,6 +318,10 @@ class ShrinkMorph:
           ps.get_curve_network("Layer " + str(i)).set_enabled(True)
         else:
           ps.get_curve_network("Layer " + str(i)).set_enabled(False)
+    changed, self.progress = gui.SliderInt("Progress", self.progress, 1, self.layer_edges[self.layer_id].shape[0])
+    if changed:
+      d = int(np.max(self.layer_edges[self.layer_id][:self.progress, :])) + 1
+      ps.register_curve_network("Layer " + str(self.layer_id), self.layer_nodes[self.layer_id][:d, :], self.layer_edges[self.layer_id][:self.progress, :])
     if gui.Button("Export to g-code"):
       filename = filedialog.asksaveasfilename(defaultextension='.gcode')
       self.printer.to_gcode(self.trajectories, filename)
