@@ -223,7 +223,7 @@ class ShrinkMorph:
     if gui.Button("Generate trajectories"):
       self.leave = False
       ps.unshow()
-
+  
   def traj_screen(self):
     # Trajectories & G-code generation
     if self.resolution == "Low":
@@ -233,7 +233,11 @@ class ShrinkMorph:
     elif self.resolution == "High":
       target_edge_length = 0.2
     self.V, self.P, self.F, self.theta2 = shrink_morph_py.subdivide(self.V, self.P, self.F, self.theta2, target_edge_length)
-    self.trajectories = shrink_morph_py.generate_trajectories(self.V, self.P, self.F, self.theta2, self.printer.layer_height, self.printer.nozzle_width, self.n_layers)
+    self.theta1 = shrink_morph_py.vertex_based_stretch_angles(self.V, self.P, self.F)
+    self.stripe = shrink_morph_py.StripeAlgo(self.P, self.F)
+    self.trajectories = []
+    self.trajectories = self.trajectories + self.stripe.generate_one_layer(self.P, self.F, self.theta1, self.theta2, self.printer.layer_height, self.printer.nozzle_width, self.n_layers, 0)
+    # self.trajectories = shrink_morph_py.generate_trajectories(self.P, self.F, theta1, self.theta2, self.printer.layer_height, self.printer.nozzle_width, self.n_layers)
     ps.remove_all_structures();
   
     self.display_trajectories()
@@ -241,14 +245,14 @@ class ShrinkMorph:
 
     ps.set_user_callback(self.callback_traj)
     ps.reset_camera_to_home_view()
-    ps.show()
+    ps.show()    
 
   def display_trajectories(self):
     nodes = self.trajectories[0]
     edges = np.empty([nodes.shape[0] - 1, 2])
     edges[:, 0] = np.arange(nodes.shape[0] - 1)
     edges[:, 1] = np.arange(1, nodes.shape[0])
-    colors = np.zeros(nodes.shape[0])
+    # colors = np.zeros(nodes.shape[0])
     path_id = 1
     self.layer_nodes = []
     self.layer_edges = []
@@ -261,12 +265,12 @@ class ShrinkMorph:
         self.layer_nodes.append(nodes)
         self.layer_edges.append(edges)
         ps_traj.set_radius(self.printer.nozzle_width / 2, relative=False)
-        ps_traj.add_scalar_quantity("Ordering", colors, enabled=True, cmap="blues")
+        # ps_traj.add_scalar_quantity("Ordering", colors, enabled=True, cmap="blues")
         nodes = traj
         edges = np.empty([nodes.shape[0] - 1, 2])
         edges[:, 0] = np.arange(nodes.shape[0] - 1)
         edges[:, 1] = np.arange(1, nodes.shape[0])
-        colors = np.zeros(nodes.shape[0])
+        # colors = np.zeros(nodes.shape[0])
 
         h = nodes[0,2]
         path_id = 1
@@ -278,18 +282,26 @@ class ShrinkMorph:
       
       nodes = np.vstack((nodes, traj))
       edges = np.vstack((edges, new_edges))
-      colors = np.hstack((colors, path_id * np.ones(traj.shape[0])))
+      # colors = np.hstack((colors, path_id * np.ones(traj.shape[0])))
       path_id += 1
 
+    self.layer_nodes.append(nodes)
+    self.layer_edges.append(edges)
     ps_traj = ps.register_curve_network("Layer " + str(k), nodes, edges, enabled=True, radius=self.printer.nozzle_width / 2)
-    ps_traj.add_scalar_quantity("Ordering", colors, enabled=True, cmap="blues")
+    # ps_traj.add_scalar_quantity("Ordering", colors, enabled=True, cmap="blues")
     ps_traj.set_radius(self.printer.nozzle_width / 2, relative=False)
 
 
   layer_id = 1
   progress = 1
+  curr_layer = 1
   def callback_traj(self):
     # global self.layer_id, self.V, self.P, self.F, self.theta2, self.printer_profile, self.trajectories, self.printer
+    if self.curr_layer < self.n_layers:
+      self.trajectories = self.trajectories + self.stripe.generate_one_layer(self.P, self.F, self.theta1, self.theta2, self.printer.layer_height, self.printer.nozzle_width, self.n_layers, self.curr_layer)
+      self.curr_layer = self.curr_layer + 1
+      self.display_trajectories()
+
     gui.PushItemWidth(200)
     changed = gui.BeginCombo("Select self.printer", self.printer_profile)
     if changed:
@@ -306,22 +318,22 @@ class ShrinkMorph:
       self.V, self.P, self.F, self.theta2 = shrink_morph_py.subdivide(self.V, self.P, self.F, self.theta2)
       ps.remove_all_structures();
       self.trajectories = shrink_morph_py.generate_trajectories(self.V, self.P, self.F, self.theta2, self.printer.layer_height, self.printer.nozzle_width, self.n_layers)
-      self.display_trajectories(self.trajectories)
+      self.display_trajectories()
       self.display_buildplate()
 
     gui.PushItemWidth(200)
-    changed, self.layer_id = gui.SliderInt("Layer", self.layer_id, 1, self.n_layers)
-    gui.PopItemWidth()
+    changed, self.layer_id = gui.SliderInt("Layer", self.layer_id, 1, self.curr_layer)
     if changed:
       for i in range(1, self.n_layers + 1):
         if i == self.layer_id:
           ps.get_curve_network("Layer " + str(i)).set_enabled(True)
         else:
           ps.get_curve_network("Layer " + str(i)).set_enabled(False)
-    changed, self.progress = gui.SliderInt("Progress", self.progress, 1, self.layer_edges[self.layer_id].shape[0])
+    changed, self.progress = gui.SliderInt("Progress", self.progress, 1, self.layer_edges[self.layer_id - 1].shape[0])
+    gui.PopItemWidth()
     if changed:
-      d = int(np.max(self.layer_edges[self.layer_id][:self.progress, :])) + 1
-      ps.register_curve_network("Layer " + str(self.layer_id), self.layer_nodes[self.layer_id][:d, :], self.layer_edges[self.layer_id][:self.progress, :])
+      d = int(np.max(self.layer_edges[self.layer_id - 1][:self.progress, :])) + 1
+      ps.register_curve_network("Layer " + str(self.layer_id), self.layer_nodes[self.layer_id - 1][:d, :], self.layer_edges[self.layer_id - 1][:self.progress, :])
     if gui.Button("Export to g-code"):
       filename = filedialog.asksaveasfilename(defaultextension='.gcode')
       self.printer.to_gcode(self.trajectories, filename)
