@@ -181,6 +181,82 @@ void writePaths(const std::string& filename, const std::vector<std::vector<Vecto
   }
 }
 
+std::vector<std::vector<geometrycentral::Vector3>> generateOneLayer(EmbeddedGeometryInterface& geometry,
+                                                                    const Eigen::VectorXd& theta1,
+                                                                    const Eigen::VectorXd& theta2,
+                                                                    const Eigen::SparseMatrix<double> &massMatrix,
+                                                                    Eigen::VectorXd& u,
+                                                                    LDLTSolver &solver,
+                                                                    int i,
+                                                                    int nLayers,
+                                                                    double layerHeight,
+                                                                    double spacing)
+{
+  geometry.requireVertexTangentBasis();
+  SurfaceMesh& mesh = geometry.mesh;
+  VertexData<double> frequencies(mesh, 1.0 / spacing);
+
+  // compute direction field
+  VertexData<Vector2> directionField(mesh);
+  for(size_t j = 0; j < mesh.nVertices(); ++j)
+  {
+    // interpolate orientations w.r.t layer
+    directionField[j] = Vector2::fromAngle(2 * (theta1(j) + (i / (nLayers - 1.) - 1 / 2.) * theta2(j)));
+    // express vectors in their respective vertex local bases (the stripes algorithm expects that)
+    auto basisVector = geometry.vertexTangentBasis[j][0];
+    Vector2 base{basisVector.x, basisVector.y};
+    directionField[j] = -directionField[j] / base.pow(2);
+  }
+
+  // build matrices and factorize solver
+  FaceData<int> fieldIndices = computeFaceIndex(geometry, directionField, 2);
+  SparseMatrix<double> energyMatrix =
+      buildVertexEnergyMatrix(geometry, directionField, fieldIndices, 2 * PI * frequencies);
+  if(i == 0)
+    solver.compute(energyMatrix);
+  else
+    solver.factorize(energyMatrix);
+
+  // solve the eigenvalue problem
+  Vector<double> x;
+  double residual = eigenvectorResidual(energyMatrix, massMatrix, u);
+  const double tol = 1e-5;
+  while(residual > tol)
+  {
+    // Solve
+    Vector<double> rhs = massMatrix * u;
+    x = solver.solve(rhs);
+
+    // Re-normalize
+    double scale = std::sqrt(std::abs(x.dot(massMatrix * x)));
+    x /= scale;
+
+    // Update
+    u = x;
+    residual = eigenvectorResidual(energyMatrix, massMatrix, x);
+  }
+
+  // Copy the result to a VertexData vector
+  VertexData<Vector2> parameterization(mesh);
+  for(size_t j = 0; j < mesh.nVertices(); ++j)
+  {
+    parameterization[j].x = u(2 * j);
+    parameterization[j].y = u(2 * j + 1);
+  }
+
+  CornerData<double> stripeValues;
+  FaceData<int> stripeIndices;
+  std::tie(stripeValues, stripeIndices) =
+      computeTextureCoordinates(geometry, directionField, 2 * PI * frequencies, parameterization);
+
+  // extract isolines
+  const auto& [points, edges] =
+      extractPolylinesFromStripePattern(geometry, stripeValues, stripeIndices, fieldIndices, directionField);
+  auto polylines = edgeToPolyline(points, edges);
+  polylines = orderPolylines(polylines);
+  return simplifyPolylines(polylines, (i + 1) * layerHeight);
+}
+
 std::vector<std::vector<std::vector<geometrycentral::Vector3>>> generatePaths(EmbeddedGeometryInterface& geometry,
                                                                               const Eigen::VectorXd& theta1,
                                                                               const Eigen::VectorXd& theta2,
@@ -189,83 +265,14 @@ std::vector<std::vector<std::vector<geometrycentral::Vector3>>> generatePaths(Em
                                                                               double spacing)
 {
   std::vector<std::vector<std::vector<Vector3>>> paths;
-
-  LDLTSolver solver;
-
   SparseMatrix<double> massMatrix = computeRealVertexMassMatrix(geometry);
-  SurfaceMesh& mesh = geometry.mesh;
-  VertexData<double> frequencies(mesh, 1.0 / spacing);
-
-  Vector<double> u = Vector<double>::Random(mesh.nVertices() * 2);
-  for(int i = 0; i < nLayers / 2; ++i)
+  LDLTSolver solver;
+  Vector<double> u = Vector<double>::Random(geometry.mesh.nVertices() * 2);
+  for(int i = 0; i < nLayers; ++i)
   {
-    Timer timer("Layers " + std::to_string(2 * i) + " and " + std::to_string(2 * i + 1));
-    geometry.requireVertexTangentBasis();
-
-    // compute direction field
-    VertexData<Vector2> directionField(mesh);
-    for(size_t j = 0; j < mesh.nVertices(); ++j)
-    {
-      // interpolate orientations w.r.t layer
-      directionField[j] = Vector2::fromAngle(2 * (theta1(j) + (i / (nLayers / 2 - 1.) - 1 / 2.) * theta2(j)));
-      // express vectors in their respective vertex local bases (the stripes algorithm expects that)
-      auto basisVector = geometry.vertexTangentBasis[j][0];
-      Vector2 base{basisVector.x, basisVector.y};
-      directionField[j] = -directionField[j] / base.pow(2);
-    }
-
-    // build matrices and factorize solver
-    FaceData<int> fieldIndices = computeFaceIndex(geometry, directionField, 2);
-    SparseMatrix<double> energyMatrix =
-        buildVertexEnergyMatrix(geometry, directionField, fieldIndices, 2 * PI * frequencies);
-    if(i == 0)
-      solver.compute(energyMatrix);
-    else
-      solver.factorize(energyMatrix);
-
-    // solve the eigenvalue problem
-    Vector<double> x = u;
-    double residual = eigenvectorResidual(energyMatrix, massMatrix, x);
-    const double tol = 1e-5;
-    while(residual > tol)
-    {
-      // Solve
-      Vector<double> rhs = massMatrix * u;
-      x = solver.solve(rhs);
-
-      // Re-normalize
-      double scale = std::sqrt(std::abs(x.dot(massMatrix * x)));
-      x /= scale;
-
-      // Update
-      u = x;
-      residual = eigenvectorResidual(energyMatrix, massMatrix, x);
-    }
-
-    // Copy the result to a VertexData vector
-    VertexData<Vector2> parameterization(mesh);
-    for(size_t j = 0; j < mesh.nVertices(); ++j)
-    {
-      parameterization[j].x = u(2 * j);
-      parameterization[j].y = u(2 * j + 1);
-    }
-
-    CornerData<double> stripeValues;
-    FaceData<int> stripeIndices;
-    std::tie(stripeValues, stripeIndices) =
-        computeTextureCoordinates(geometry, directionField, 2 * PI * frequencies, parameterization);
-
-    // extract isolines
-    for(int j = 0; j < 2; ++j)
-    {
-      const auto& [points, edges] = extractPolylinesFromStripePattern(geometry, stripeValues + j * PI, stripeIndices,
-                                                                      fieldIndices, directionField);
-      auto polylines = edgeToPolyline(points, edges);
-      polylines = orderPolylines(polylines);
-      paths.push_back(simplifyPolylines(polylines, (2 * i + j) * layerHeight));
-    }
+    Timer timer("Layer " + std::to_string(i));
+    paths.push_back(generateOneLayer(geometry, theta1, theta2, massMatrix, u, solver, i, nLayers, layerHeight, spacing));
   }
-
   return paths;
 }
 

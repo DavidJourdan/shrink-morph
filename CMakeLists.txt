@@ -16,7 +16,7 @@ list(APPEND CMAKE_MODULE_PATH "${SHRINK_MORPH_ROOT}/cmake")
 
 add_subdirectory(lib)
 
-option(PYTHON_APP ON)
+option(PYTHON_BINDINGS ON)
 
 if(${PYTHON_BINDINGS})
   add_subdirectory(python)

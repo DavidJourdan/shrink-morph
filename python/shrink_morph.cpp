@@ -4,6 +4,7 @@
 #include "path_extraction.h"
 #include "simulation_utils.h"
 #include "stretch_angles.h"
+#include "stripe_patterns.h"
 #include "timer.h"
 
 #include <Eigen/Dense>
@@ -183,9 +184,9 @@ Eigen::VectorXd directionsOptimization(nb::DRef<Eigen::MatrixXd> V,
   return theta2.toVector();
 }
 
-std::vector<Eigen::MatrixXd> generateTrajectories(const nb::DRef<Eigen::MatrixXd>& V,
-                                                  const nb::DRef<Eigen::MatrixXd>& P,
+std::vector<Eigen::MatrixXd> generateTrajectories(const nb::DRef<Eigen::MatrixXd>& P,
                                                   const nb::DRef<Eigen::MatrixXi>& F,
+                                                  const nb::DRef<Eigen::VectorXd>& theta1,
                                                   const nb::DRef<Eigen::VectorXd>& theta2,
                                                   double layerHeight,
                                                   double spacing,
@@ -196,36 +197,13 @@ std::vector<Eigen::MatrixXd> generateTrajectories(const nb::DRef<Eigen::MatrixXd
 
   // create geometry-central objects
   ManifoldSurfaceMesh mesh(F);
-  VertexPositionGeometry geometry(mesh, V);
-
   Eigen::MatrixXd P_3D(P.rows(), 3);
   P_3D.leftCols(2) = P;
   P_3D.col(2).setZero();
   VertexPositionGeometry geometryUV(mesh, P_3D);
 
-  FaceData<double> theta1 = computeStretchAngles(mesh, V, P, F);
-
-  // convert face angles into vertex angles
-  Eigen::VectorXd th1(V.rows());
-  for(int i = 0; i < V.rows(); ++i)
-  {
-    double sumAngles = 0;
-    int nFaces = 0;
-    Vertex v = mesh.vertex(i);
-    for(Face f: v.adjacentFaces())
-    {
-      // add face orientations in global coordinates
-      if(!f.isBoundaryLoop())
-      {
-        sumAngles += theta1[f];
-        nFaces += 1;
-      }
-    }
-    th1(i) = sumAngles / nFaces;
-  }
-
   std::vector<std::vector<std::vector<Vector3>>> paths =
-      generatePaths(geometryUV, th1, theta2, layerHeight, nLayers, spacing);
+      generatePaths(geometryUV, theta1, theta2, layerHeight, nLayers, spacing);
 
   // convert data to the right format
   std::vector<Eigen::MatrixXd> dataArray;
@@ -241,6 +219,97 @@ std::vector<Eigen::MatrixXd> generateTrajectories(const nb::DRef<Eigen::MatrixXd
     }
   }
   return dataArray;
+}
+
+struct StripeAlgo
+{
+  Eigen::SparseMatrix<double> massMatrix;
+  Eigen::VectorXd u;
+  LDLTSolver solver;
+  // geometrycentral::surface::VertexPositionGeometry geometryUV;
+
+  StripeAlgo(const nb::DRef<Eigen::MatrixXd>& P, const nb::DRef<Eigen::MatrixXi>& F)
+  {
+    using namespace geometrycentral;
+    using namespace geometrycentral::surface;
+
+    ManifoldSurfaceMesh mesh(F);
+    Eigen::MatrixXd P_3D(P.rows(), 3);
+    P_3D.leftCols(2) = P;
+    P_3D.col(2).setZero();
+    VertexPositionGeometry geometryUV(mesh, P_3D);
+
+    massMatrix = computeRealVertexMassMatrix(geometryUV);
+    u = Eigen::VectorXd::Random(mesh.nVertices() * 2);
+  }
+
+  std::vector<Eigen::MatrixXd> generateTrajectory(const nb::DRef<Eigen::MatrixXd>& P,
+                                    const nb::DRef<Eigen::MatrixXi>& F,
+                                    const nb::DRef<Eigen::VectorXd>& theta1,
+                                    const nb::DRef<Eigen::VectorXd>& theta2,
+                                    double layerHeight,
+                                    double spacing,
+                                    int nLayers,
+                                    int i)
+  {
+    using namespace geometrycentral;
+    using namespace geometrycentral::surface;
+
+    // create geometry-central objects
+    ManifoldSurfaceMesh mesh(F);
+    Eigen::MatrixXd P_3D(P.rows(), 3);
+    P_3D.leftCols(2) = P;
+    P_3D.col(2).setZero();
+    VertexPositionGeometry geometryUV(mesh, P_3D);
+
+    auto paths = generateOneLayer(geometryUV, theta1, theta2, massMatrix, u, solver, i, nLayers, layerHeight, spacing);
+
+    // convert data to the right format
+    std::vector<Eigen::MatrixXd> dataArray;
+    for(auto path: paths)
+    {
+      Eigen::MatrixXd traj(path.size(), 3);
+      for(int i = 0; i < path.size(); ++i)
+        for(int j = 0; j < 3; ++j)
+          traj(i, j) = path[i][j];
+      dataArray.push_back(traj);
+    }
+    return dataArray;
+  }
+};
+
+
+Eigen::VectorXd vertexBasedStretchAngles(const nb::DRef<Eigen::MatrixXd>& V,
+                                         const nb::DRef<Eigen::MatrixXd>& P,
+                                         const nb::DRef<Eigen::MatrixXi>& F)
+{
+  using namespace geometrycentral;
+  using namespace geometrycentral::surface;
+
+  // create geometry-central objects
+  ManifoldSurfaceMesh mesh(F);
+  FaceData<double> theta1 = computeStretchAngles(mesh, V, P, F);
+
+  // convert face angles into vertex angles
+  Eigen::VectorXd vertexAngles(V.rows());
+  for(int i = 0; i < V.rows(); ++i)
+  {
+    double sumAngles = 0;
+    int nFaces = 0;
+    Vertex v = mesh.vertex(i);
+    for(Face f: v.adjacentFaces())
+    {
+      // add face orientations in global coordinates
+      if(!f.isBoundaryLoop())
+      {
+        sumAngles += theta1[f];
+        nFaces += 1;
+      }
+    }
+    vertexAngles(i) = sumAngles / nFaces;
+  }
+
+  return vertexAngles;
 }
 
 NB_MODULE(shrink_morph_py, m)
@@ -261,4 +330,8 @@ NB_MODULE(shrink_morph_py, m)
   m.def("simulation", &simulation);
   m.def("directions_optimization", &directionsOptimization);
   m.def("generate_trajectories", &generateTrajectories);
+  m.def("vertex_based_stretch_angles", &vertexBasedStretchAngles);
+  nb::class_<StripeAlgo>(m, "StripeAlgo")
+      .def(nb::init<const nb::DRef<Eigen::MatrixXd>&, const nb::DRef<Eigen::MatrixXi>&>())
+      .def("generate_one_layer", &StripeAlgo::generateTrajectory);
 }

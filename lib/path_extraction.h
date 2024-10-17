@@ -18,6 +18,17 @@ generatePaths(geometrycentral::surface::EmbeddedGeometryInterface& geometry,
               int nLayers,
               double spacing);
 
+std::vector<std::vector<geometrycentral::Vector3>> generateOneLayer(geometrycentral::surface::EmbeddedGeometryInterface& geometry,
+                                                                    const Eigen::VectorXd& theta1,
+                                                                    const Eigen::VectorXd& theta2,
+                                                                    const Eigen::SparseMatrix<double>& massMatrix,
+                                                                    Eigen::VectorXd& u,
+                                                                    LDLTSolver& solver,
+                                                                    int i,
+                                                                    int nLayers,
+                                                                    double layerHeight,
+                                                                    double spacing);
+
 void writePaths(const std::string& filename,
                 const std::vector<std::vector<geometrycentral::Vector3>>& paths,
                 double height);
